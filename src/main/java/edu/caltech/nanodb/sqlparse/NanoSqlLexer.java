@@ -50,7 +50,7 @@ import antlr.SemanticException;
  */
 @SuppressWarnings({"unchecked", "cast"})
 
-public class NanoSqlLexer extends antlr.CharScanner implements NanoSqlParserTokenTypes, TokenStream
+public class NanoSqlLexer extends CharScanner implements NanoSqlParserTokenTypes, TokenStream
  {
 public NanoSqlLexer(InputStream in) {
 	this(new ByteBuffer(in));

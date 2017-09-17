@@ -29,11 +29,11 @@ import antlr.collections.impl.BitSet;
 
 /**
  * A parser for processing SQL commands into the various command-classes derived
- * from {@link edu.caltech.nanodb.commands.Command}.  The information in these
+ * from {@link Command}.  The information in these
  * commands is then used for data-definition, data-manipulation, and general
  * utility operations, within the database.
  */
-public class NanoSqlParser extends antlr.LLkParser       implements NanoSqlParserTokenTypes
+public class NanoSqlParser extends LLkParser       implements NanoSqlParserTokenTypes
  {
 
 protected NanoSqlParser(TokenBuffer tokenBuf, int k) {
@@ -247,7 +247,7 @@ public NanoSqlParser(ParserSharedInputState state) {
 	
 /**
  * CREATE Statements - each database object that can be created will produce a
- * different {@link edu.caltech.nanodb.commands.Command} instance that contains
+ * different {@link Command} instance that contains
  * the SQL command's details.  This rule returns that Command instance, fully
  * configured.
  */
