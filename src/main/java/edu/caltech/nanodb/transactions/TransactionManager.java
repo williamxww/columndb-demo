@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import edu.caltech.nanodb.util.PropertiesUtil;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.client.SessionState;
@@ -52,7 +53,7 @@ public class TransactionManager {
      *         otherwise.
      */
     public static boolean isEnabled() {
-        return "on".equalsIgnoreCase(System.getProperty(PROP_TXNS, "on"));
+        return "on".equalsIgnoreCase(PropertiesUtil.getProperty(PROP_TXNS, "on"));
     }
 
     

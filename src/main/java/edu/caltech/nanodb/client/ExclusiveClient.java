@@ -6,22 +6,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 
+import org.apache.log4j.Logger;
+
 import antlr.InputBuffer;
 import antlr.LexerSharedInputState;
 import antlr.RecognitionException;
 import antlr.TokenStreamException;
-
-import edu.caltech.nanodb.server.NanoDBServer;
-import org.apache.log4j.Logger;
-
 import edu.caltech.nanodb.commands.Command;
-import edu.caltech.nanodb.commands.ExecutionException;
 import edu.caltech.nanodb.commands.ExitCommand;
-
+import edu.caltech.nanodb.server.NanoDBServer;
 import edu.caltech.nanodb.sqlparse.NanoSqlLexer;
 import edu.caltech.nanodb.sqlparse.NanoSqlParser;
-
-import edu.caltech.nanodb.storage.StorageManager;
 
 
 /**

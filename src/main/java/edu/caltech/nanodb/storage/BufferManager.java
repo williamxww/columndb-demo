@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import edu.caltech.nanodb.transactions.TransactionManager;
+import edu.caltech.nanodb.util.PropertiesUtil;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.client.SessionState;
@@ -188,7 +189,7 @@ public class BufferManager {
         // Set the default up-front; it's just easier that way.
         maxCacheSize = DEFAULT_PAGECACHE_SIZE;
 
-        String str = System.getProperty(PROP_PAGECACHE_SIZE);
+        String str = PropertiesUtil.getProperty(PROP_PAGECACHE_SIZE);
         if (str != null) {
             str = str.trim().toLowerCase();
 
@@ -227,15 +228,14 @@ public class BufferManager {
 
 
     private String configureReplacementPolicy() {
-        String str = System.getProperty(PROP_PAGECACHE_POLICY);
+        String str = PropertiesUtil.getProperty(PROP_PAGECACHE_POLICY);
         if (str != null) {
             str = str.trim().toLowerCase();
 
             if (!("lru".equals(str) || "fifo".equals(str))) {
                 logger.error(String.format(
                     "Unrecognized value \"%s\" for page-cache replacement " +
-                    "policy; using default value of LRU.",
-                    System.getProperty(PROP_PAGECACHE_POLICY)));
+                    "policy; using default value of LRU.", str));
             }
         }
 
@@ -304,8 +304,7 @@ public class BufferManager {
         // Next, add it to the set of pages pinned by this particular session.
         // (This makes it easier to unpin all pages used by this session.)
         
-        HashSet<PinnedPageInfo> pinnedBySession =
-            pinnedPagesBySessionID.get(sessionID);
+        HashSet<PinnedPageInfo> pinnedBySession = pinnedPagesBySessionID.get(sessionID);
         
         if (pinnedBySession == null) {
             pinnedBySession = new HashSet<PinnedPageInfo>();
