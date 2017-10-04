@@ -1,8 +1,6 @@
 package edu.caltech.nanodb.relations;
 
 
-import edu.caltech.nanodb.indexes.IndexFileInfo;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

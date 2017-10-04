@@ -1,5 +1,6 @@
 package edu.caltech.nanodb.storage.colstore;
 
+import edu.caltech.nanodb.storage.heapfile.HeaderPage;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.storage.DBPage;
@@ -10,11 +11,11 @@ import edu.caltech.nanodb.storage.heapfile.DataPage;
  * This class provides the constants and operations necessary for manipulating
  * a table header page within a column store.
  * 
- * Designs are similar to HeaderPage.
+ * Designs are similar to {@link HeaderPage}.
  */
 public class CSHeaderPage {
-	/** A logging object for reporting anything interesting that happens. */
-    private static Logger logger = Logger.getLogger(DataPage.class);
+
+    private static Logger logger = Logger.getLogger(CSHeaderPage.class);
 
     public static final int ENCODING_OFFSET = 2;
     

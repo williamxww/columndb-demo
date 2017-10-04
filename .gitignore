@@ -6,3 +6,8 @@
 /.idea/
 *.iml
 *.class
+
+/datafiles/
+/gen/
+/input/
+/test_datafiles/

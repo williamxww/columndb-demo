@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 
+import edu.caltech.nanodb.util.PropertiesUtil;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.commands.CreateTableCommand;
@@ -19,6 +20,7 @@ import edu.caltech.nanodb.relations.SQLDataType;
  */
 public class FileAnalyzer {
 	private static Logger logger = Logger.getLogger(FileAnalyzer.class);
+	private String inputFilePrefix = PropertiesUtil.getProperty("nanodb.inputFileDir", "input_datafiles/");
 	private String filename;
 	private BufferedReader fileReader;
 	private FileEncoding[] encodings;
@@ -32,13 +34,11 @@ public class FileAnalyzer {
 	 * @param name the filename
 	 * @throws FileNotFoundException
 	 */
-	public FileAnalyzer(String name) throws FileNotFoundException
-	{
-		filename = name;
-		fileReader = new BufferedReader(
-			new FileReader("input_datafiles/" + filename));
-		seekBuffer = 0;
-	}
+    public FileAnalyzer(String name) throws FileNotFoundException {
+        filename = name;
+        fileReader = new BufferedReader(new FileReader(inputFilePrefix + filename));
+        seekBuffer = 0;
+    }
 	
 	/**
 	 * Scans through the file, analyzing cardinality and locality (for now)!
@@ -249,7 +249,7 @@ public class FileAnalyzer {
 	public String getNextObject(int column) throws IOException {
 		if (readers[column] == null) {
 			readers[column] = new BufferedReader(new FileReader
-				("input_datafiles/" + filename));
+				(inputFilePrefix + filename));
 			readers[column].readLine();
 		}
 		

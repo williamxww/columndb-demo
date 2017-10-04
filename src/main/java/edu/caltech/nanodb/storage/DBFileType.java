@@ -13,6 +13,7 @@ public enum DBFileType {
     /**
      * Represents a heap data file, which supports variable-size tuples and
      * stores them in no particular order.
+     * 支持变长元组存储，并且是没有指定顺序的
      */
     HEAP_DATA_FILE(1),
 

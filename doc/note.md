@@ -1,16 +1,10 @@
-Sybase IQ
-Infobright
-monetDB
-C-Store
+### 专业术语
 
-
-http://www.makaidong.com/%E6%95%B0%E6%8D%AE%E5%BA%93/211155.shtml
+schema : column info 的集合
+RLE:run-length encoding,变动长度编码法,游程编码是一种简单的非破坏性资料压缩法
 
 
 
-一个库一个DBFile前2字节为
-
-1 byte type | 1 byte encoded page-size |
 
 
 
@@ -49,8 +43,6 @@ txnstat.dat 只记录某次事务在日志文件(.log文件)中的起始位置�
 
 
 
-
-
 ```java
 // pageData[position]为byte，若全为1，不加& 0xFF返回的是-1，但需要返回无符号整数
 public int readUnsignedByte(int position) {
@@ -78,106 +70,311 @@ at edu.caltech.nanodb.commands.InsertCommand.insertSingleRow(InsertCommand.java:
 at edu.caltech.nanodb.commands.InsertCommand.execute(InsertCommand.java:165)
 at edu.caltech.nanodb.server.NanoDBServer.doCommand(NanoDBServer.java:114)
 at edu.caltech.nanodb.client.ExclusiveClient.main(ExclusiveClient.java:106)
-
-```
-
-创建表的日志
-
-```
-
-
 ```
 
 
 
-插入的日志
+### 创建列式数据库
 
-```log
-CMD> INSERT INTO states VALUES (8, 'vv');
-DEBUG 2017-09-16 main ExclusiveClient Parsed command:  InsertCommand[values=(8,'vv')]
-DEBUG 2017-09-16 main TransactionStateUpdater Session ID:  1	Transaction state:  TxnState[no transaction]
-DEBUG 2017-09-16 main TransactionStateUpdater No transaction is in progress; auto-starting one!
-DEBUG 2017-09-16 main TransactionManager Starting transaction with ID 11
-DEBUG 2017-09-16 main BufferManager Requested file STATES.tbl is NOT in file-cache.
-DEBUG 2017-09-16 main FileManager Opened existing database file .\datafiles\STATES.tbl; type is HEAP_DATA_FILE, page size is 8192.
-DEBUG 2017-09-16 main BufferManager Adding file STATES.tbl to file-cache.
-DEBUG 2017-09-16 main StorageManager Opened DBFile for table STATES at path .\datafiles\STATES.tbl.
-DEBUG 2017-09-16 main StorageManager Type is HEAP_DATA_FILE, page size is 8192 bytes.
-DEBUG 2017-09-16 main BufferManager Requested page [STATES.tbl,0] is NOT in page-cache.
-DEBUG 2017-09-16 main BufferManager Adding page [STATES.tbl,0] to page-cache.
-DEBUG 2017-09-16 main BufferManager Session 1 is pinning page [STATES.tbl,0].  New pin-count is 1.
-DEBUG 2017-09-16 main HeapFileTableManager Table has 2 columns.
-DEBUG 2017-09-16 main HeapFileTableManager ColumnInfo[STATES.STATE_ID:INTEGER]
-DEBUG 2017-09-16 main HeapFileTableManager ColumnInfo[STATES.STATE_NAME:VARCHAR(30)]
-DEBUG 2017-09-16 main HeapFileTableManager Reading 0 constraints
-DEBUG 2017-09-16 main HeaderPage Reading table-statistics from header page.
-DEBUG 2017-09-16 main HeaderPage Read column-stat data:  nullmask=0xF, unique=-1, null=-1, min=null, max=null
-DEBUG 2017-09-16 main HeaderPage Read column-stat data:  nullmask=0xF, unique=-1, null=-1, min=null, max=null
-DEBUG 2017-09-16 main HeapFileTableManager TableStats[numDataPages=0, numTuples=0, avgTupleSize=0.0]
-DEBUG 2017-09-16 main BufferManager Session 1 is unpinning page [STATES.tbl,0].  New pin-count is 0.
-DEBUG 2017-09-16 main EventDispatcher Firing beforeRowInserted
-DEBUG 2017-09-16 main HeapFileTableManager Adding new tuple of size 9 bytes.
-DEBUG 2017-09-16 main BufferManager Requested page [STATES.tbl,1] is NOT in page-cache.
-DEBUG 2017-09-16 main BufferManager Adding page [STATES.tbl,1] to page-cache.
-DEBUG 2017-09-16 main BufferManager Session 1 is pinning page [STATES.tbl,1].  New pin-count is 1.
-DEBUG 2017-09-16 main HeapFileTableManager Found space for new tuple in page 1.
-DEBUG 2017-09-16 main DataPage Allocating space for new 9-byte tuple.
-DEBUG 2017-09-16 main DataPage Current number of slots on page:  8
-DEBUG 2017-09-16 main DataPage No empty slot available.  Adding a new slot.
-DEBUG 2017-09-16 main DataPage Tuple will get slot 8.  Final number of slots:  9
-DEBUG 2017-09-16 main DataPage New tuple of 9 bytes will reside at location [8082, 8091).
-DEBUG 2017-09-16 main HeapFileTableManager New tuple will reside on page 1, slot 8.
-DEBUG 2017-09-16 main TransactionManager Recording page-update for page 1 of file STATES.tbl
-DEBUG 2017-09-16 main WALManager Writing a START_TXN record for transaction 11 at LSN LSN[00000:00000797]
-DEBUG 2017-09-16 main WALManager Opening WAL file wal-00000.log
-DEBUG 2017-09-16 main BufferManager Requested file wal-00000.log is NOT in file-cache.
-DEBUG 2017-09-16 main FileManager Opened existing database file .\datafiles\wal-00000.log; type is WRITE_AHEAD_LOG_FILE, page size is 8192.
-DEBUG 2017-09-16 main BufferManager Adding file wal-00000.log to file-cache.
-DEBUG 2017-09-16 main BufferManager Requested page [wal-00000.log,0] is NOT in page-cache.
-DEBUG 2017-09-16 main BufferManager Adding page [wal-00000.log,0] to page-cache.
-DEBUG 2017-09-16 main BufferManager Session 1 is pinning page [wal-00000.log,0].  New pin-count is 1.
-DEBUG 2017-09-16 main WALManager Next-LSN value is now LSN[00000:00000803]
-DEBUG 2017-09-16 main WALManager Writing an UPDATE_PAGE record for transaction 11 at LSN LSN[00000:00000803]
-DEBUG 2017-09-16 main WALManager Opening WAL file wal-00000.log
-DEBUG 2017-09-16 main BufferManager Requested file wal-00000.log is in file-cache.
-DEBUG 2017-09-16 main BufferManager Requested page [wal-00000.log,0] is in page-cache.
-DEBUG 2017-09-16 main WALManager Skipping identical bytes starting at index 0
-DEBUG 2017-09-16 main WALManager Recording changed bytes starting at index 1
-DEBUG 2017-09-16 main WALManager Found 1 changed bytes starting at index 1
-DEBUG 2017-09-16 main WALManager Skipping identical bytes starting at index 2
-DEBUG 2017-09-16 main WALManager Recording changed bytes starting at index 18
-DEBUG 2017-09-16 main WALManager Found 2 changed bytes starting at index 18
-DEBUG 2017-09-16 main WALManager Skipping identical bytes starting at index 20
-DEBUG 2017-09-16 main WALManager Recording changed bytes starting at index 8086
-DEBUG 2017-09-16 main WALManager Found 5 changed bytes starting at index 8086
-DEBUG 2017-09-16 main WALManager Skipping identical bytes starting at index 8091
-DEBUG 2017-09-16 main EventDispatcher Firing afterRowInserted
-DEBUG 2017-09-16 main IndexUpdater Adding tuple to indexes for table STATES
-DEBUG 2017-09-16 main TransactionStateUpdater Session ID:  1	Transaction state:  TxnState[txnID=11, userStarted=false, loggedStart=true, lastLSN=LSN[00000:00000803]]
-DEBUG 2017-09-16 main TransactionStateUpdater An auto-started transaction is in progress; committing it!
-DEBUG 2017-09-16 main WALManager Writing a COMMIT_TXN record for transaction 11 at LSN LSN[00000:00000862]
-DEBUG 2017-09-16 main WALManager Opening WAL file wal-00000.log
-DEBUG 2017-09-16 main BufferManager Requested file wal-00000.log is in file-cache.
-DEBUG 2017-09-16 main BufferManager Requested page [wal-00000.log,0] is in page-cache.
-DEBUG 2017-09-16 main WALManager Next-LSN value is now LSN[00000:00000874]
-DEBUG 2017-09-16 main BufferManager Requested file wal-00000.log is in file-cache.
-INFO  2017-09-16 main BufferManager Writing all dirty pages for file wal-00000.log to disk (with sync).
-DEBUG 2017-09-16 main BufferManager     Saving page [wal-00000.log,0] to disk.
-DEBUG 2017-09-16 main BufferManager Syncing file wal-00000.log
-INFO  2017-09-16 main FileManager Synchronizing database file to disk:  wal-00000.log
-DEBUG 2017-09-16 main BufferManager Requested file txnstate.dat is in file-cache.
-DEBUG 2017-09-16 main BufferManager Requested page [txnstate.dat,0] is in page-cache.
-INFO  2017-09-16 main BufferManager Writing all dirty pages for file txnstate.dat to disk (with sync).
-DEBUG 2017-09-16 main BufferManager     Saving page [txnstate.dat,0] to disk.
-DEBUG 2017-09-16 main BufferManager Syncing file txnstate.dat
-INFO  2017-09-16 main FileManager Synchronizing database file to disk:  txnstate.dat
-DEBUG 2017-09-16 main TransactionManager WAL was successfully forced to LSN LSN[00000:00000874] (plus 0 bytes)
-DEBUG 2017-09-16 main TransactionManager Transaction completed, resetting transaction state.
-DEBUG 2017-09-16 main BufferManager Session 1 is unpinning page [txnstate.dat,0].  New pin-count is 0.
-DEBUG 2017-09-16 main BufferManager Session 1 is unpinning page [STATES.tbl,1].  New pin-count is 0.
-DEBUG 2017-09-16 main BufferManager Session 1 is unpinning page [wal-00000.log,0].  New pin-count is 0.
+```sql
+CREATE COLSTORE vv FROM  vv.txt (
+  id   INTEGER,
+  name VARCHAR(30)
+);
+select * from vv;
+select name from vv;
+select * from vv where id > 3 limit 2,1;
+select count(1) from vv;
+select concat(name, '1') from vv;
+INSERT INTO vv VALUES (3, 'a');
+INSERT INTO vv VALUES (4, 'b');
+INSERT INTO vv VALUES (5, 'c');
+```
+
+
+一个库一个DBFile前2字节为
+1 byte type | 1 byte encoded page-size |
+
+
+表schema存储文件 vv.tbl
+CSHeaderPage：用于存放各列的类型，名称以及相关主键。
+DataFileType: 列式存储类型为30
+encodePageSize:page size 用2的幂值表示，如65536的encodePageSize为16
+colNums:总列数
+colTypeId:列类型，如Int对应的1
+colTypeLength:列宽度，只有当列类型为VARCHAR时，此值有效
+colName:列名称
+numConstraints:主外键的数量
+keys:主外键
+```
+|    1B  |       1B     |   4B   |  4B      |
+|FileType|encodePageSize|encoding|schemaSize|
+
+|   1B  |    1B   |    2B       |
+|colNums|colTypeId|colTypeLength|colName|numConstraints|keys|
+```
+
+列存储文件 vv.id.tbl
+DataFileType: 列式存储类型为30
+encodePageSize:page size 用2的幂值表示，如65536的encodePageSize为16
+encoding: 是压缩存储还是非压缩
+count: 此页总记录数
+next_write_pos:写下一条记录时的起始位置
+
+```
+|    1B  |       1B     |   4B   |  4B |      4B   	  |
+|FileType|encodePageSize|encoding|count|next_write_pos|
+
+|  4B   |4B |
+|int val|pos|colVal|pos|colVal|pos|...
+
+|      4B      |     X B   |  4B   |
+|varchar length|varchar val|  pos  |varchar length|varchar val|  pos  |
+```
+
+### 启动日志
+
+edu.caltech.nanodb.client.ExclusiveClient#main
+
+```verilog
+INFO  main NanoDBServer| Initializing storage manager.
+INFO  main StorageManager| Using base directory .\datafiles
+INFO  main StorageManager| Initializing transaction manager.
+DEBUG main BufferManager| Requested file txnstate.dat is NOT in file-cache.
+INFO  main TransactionManager| Couldn't find transaction-state file txnstate.dat, creating.
+DEBUG main BufferManager| Requested file txnstate.dat is NOT in file-cache.
+DEBUG main FileManager| Creating new database file .\datafiles\txnstate.dat.
+DEBUG main FileManager| Initializing database file .\datafiles\txnstate.dat.
+DEBUG main FileManager| Requested page 0 doesn't yet exist in file txnstate.dat; creating.
+DEBUG main FileManager| Set file txnstate.dat length to 8192
+DEBUG main BufferManager| Adding file txnstate.dat to file-cache.
+DEBUG main BufferManager| Requested page [txnstate.dat,0] is NOT in page-cache.
+DEBUG main BufferManager| Adding page [txnstate.dat,0] to page-cache.
+DEBUG main BufferManager| Session 1 is pinning page [txnstate.dat,0].  New pin-count is 1.
+INFO  main BufferManager| Writing all dirty pages for file txnstate.dat to disk (with sync).
+DEBUG main BufferManager|     Saving page [txnstate.dat,0] to disk.
+DEBUG main BufferManager| Syncing file txnstate.dat
+INFO  main FileManager| Synchronizing database file to disk:  txnstate.dat
+DEBUG main TransactionManager| Txn State has FirstLSN = LSN[00000:00000006], NextLSN = LSN[00000:00000006]
+DEBUG main BufferManager| Requested file txnstate.dat is in file-cache.
+DEBUG main BufferManager| Requested page [txnstate.dat,0] is in page-cache.
+INFO  main BufferManager| Writing all dirty pages for file txnstate.dat to disk (with sync).
+DEBUG main BufferManager|     Saving page [txnstate.dat,0] to disk.
+DEBUG main BufferManager| Syncing file txnstate.dat
+INFO  main FileManager| Synchronizing database file to disk:  txnstate.dat
+Welcome to NanoDB.  Exit with EXIT or QUIT command.
+```
+
+
+
+
+
+### CREATE日志
+
+```sql
+CREATE TABLE states (
+  id   INTEGER,
+  name VARCHAR(30)
+);
+```
+
+
+
+```
+DEBUG main ExclusiveClient| Parsed command:  CreateTable[STATES]
+DEBUG main TransactionStateUpdater| Session ID:  1	Transaction state:  TxnState[no transaction]
+DEBUG main TransactionStateUpdater| No transaction is in progress; auto-starting one!
+DEBUG main TransactionManager| Starting transaction with ID 1
+DEBUG main CreateTableCommand| Creating a TableFileInfo object describing the new table STATES.
+DEBUG main CreateTableCommand| Creating the new table STATES on disk.
+DEBUG main FileManager| Creating new database file .\datafiles\STATES.tbl.
+DEBUG main FileManager| Initializing database file .\datafiles\STATES.tbl.
+DEBUG main FileManager| Requested page 0 doesn't yet exist in file STATES.tbl; creating.
+DEBUG main FileManager| Set file STATES.tbl length to 8192
+DEBUG main StorageManager| Created new DBFile for table STATES at path .\datafiles\STATES.tbl
+INFO  main HeapFileTableManager| Initializing new table STATES with 2 columns, stored at STATES.tbl
+DEBUG main BufferManager| Requested page [STATES.tbl,0] is NOT in page-cache.
+DEBUG main BufferManager| Adding page [STATES.tbl,0] to page-cache.
+DEBUG main BufferManager| Session 1 is pinning page [STATES.tbl,0].  New pin-count is 1.
+INFO  main HeapFileTableManager| Writing table schema:  Schema[cols=[ColumnInfo[STATES.ID:INTEGER], ColumnInfo[STATES.NAME:VARCHAR(30)]]]
+DEBUG main HeapFileTableManager| Writing 0 constraints
+DEBUG main HeapFileTableManager| Constraints occupy 1 bytes in the schema
+DEBUG main HeapFileTableManager| Table STATES schema uses 14 bytes of the 8192-byte header page.
+DEBUG main HeaderPage| Writing table-statistics to header page.
+DEBUG main HeaderPage| Writing column-stat data:  nullmask=0xF, unique=-1, null=-1, min=null, max=null
+DEBUG main HeaderPage| Writing column-stat data:  nullmask=0xF, unique=-1, null=-1, min=null, max=null
+DEBUG main HeaderPage| Writing statistics completed.  Total size is 12 bytes.
+DEBUG main TransactionManager| Recording page-update for page 0 of file STATES.tbl
+DEBUG main WALManager| Writing a START_TXN record for transaction 1 at LSN LSN[00000:00000006]
+DEBUG main WALManager| Opening WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is NOT in file-cache.
+DEBUG main WALManager| WAL file doesn't exist!  WAL is expanding into a new file.
+DEBUG main WALManager| Creating WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is NOT in file-cache.
+DEBUG main FileManager| Creating new database file .\datafiles\wal-00000.log.
+DEBUG main FileManager| Initializing database file .\datafiles\wal-00000.log.
+DEBUG main FileManager| Requested page 0 doesn't yet exist in file wal-00000.log; creating.
+DEBUG main FileManager| Set file wal-00000.log length to 8192
+DEBUG main BufferManager| Adding file wal-00000.log to file-cache.
+DEBUG main BufferManager| Requested page [wal-00000.log,0] is NOT in page-cache.
+DEBUG main BufferManager| Adding page [wal-00000.log,0] to page-cache.
+DEBUG main BufferManager| Session 1 is pinning page [wal-00000.log,0].  New pin-count is 1.
+DEBUG main WALManager| Next-LSN value is now LSN[00000:00000012]
+DEBUG main WALManager| Writing an UPDATE_PAGE record for transaction 1 at LSN LSN[00000:00000012]
+DEBUG main WALManager| Opening WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+DEBUG main BufferManager| Requested page [wal-00000.log,0] is in page-cache.
+DEBUG main WALManager| Skipping identical bytes starting at index 0
+DEBUG main WALManager| Recording changed bytes starting at index 3
+DEBUG main WALManager| Found 16 changed bytes starting at index 3
+DEBUG main WALManager| Skipping identical bytes starting at index 19
+DEBUG main WALManager| Recording changed bytes starting at index 30
+DEBUG main WALManager| Found 2 changed bytes starting at index 30
+DEBUG main WALManager| Skipping identical bytes starting at index 32
+DEBUG main BufferManager| Session 1 is unpinning page [STATES.tbl,0].  New pin-count is 0.
+DEBUG main CreateTableCommand| New table STATES is created!
+Created table:  STATES
+DEBUG main TransactionStateUpdater| Session ID:  1	Transaction state:  TxnState[txnID=1, userStarted=false, loggedStart=true, lastLSN=LSN[00000:00000012]]
+DEBUG main TransactionStateUpdater| An auto-started transaction is in progress; committing it!
+DEBUG main WALManager| Writing a COMMIT_TXN record for transaction 1 at LSN LSN[00000:00000087]
+DEBUG main WALManager| Opening WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+DEBUG main BufferManager| Requested page [wal-00000.log,0] is in page-cache.
+DEBUG main WALManager| Next-LSN value is now LSN[00000:00000099]
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+INFO  main BufferManager| Writing all dirty pages for file wal-00000.log to disk (with sync).
+DEBUG main BufferManager|     Saving page [wal-00000.log,0] to disk.
+DEBUG main BufferManager| Syncing file wal-00000.log
+INFO  main FileManager| Synchronizing database file to disk:  wal-00000.log
+DEBUG main BufferManager| Requested file txnstate.dat is in file-cache.
+DEBUG main BufferManager| Requested page [txnstate.dat,0] is in page-cache.
+INFO  main BufferManager| Writing all dirty pages for file txnstate.dat to disk (with sync).
+DEBUG main BufferManager|     Saving page [txnstate.dat,0] to disk.
+DEBUG main BufferManager| Syncing file txnstate.dat
+INFO  main FileManager| Synchronizing database file to disk:  txnstate.dat
+DEBUG main TransactionManager| WAL was successfully forced to LSN LSN[00000:00000099] (plus 0 bytes)
+DEBUG main TransactionManager| Transaction completed, resetting transaction state.
+DEBUG main BufferManager| Session 1 is unpinning page [wal-00000.log,0].  New pin-count is 0.
+DEBUG main BufferManager| Session 1 is unpinning page [txnstate.dat,0].  New pin-count is 0.
 CMD> 
 ```
+
+
+
+### INSERT日志
+
+```sql
+INSERT INTO states VALUES (1, 'Alabama');
+INSERT INTO states VALUES (2, 'Alaska');
+INSERT INTO states VALUES (3, 'Arizona');
+INSERT INTO states VALUES (4, 'Arkansas');
+INSERT INTO states VALUES (5, 'California');
+INSERT INTO states VALUES (6, 'wuhan');
+INSERT INTO states VALUES (7, '1');
+INSERT INTO states VALUES (8, 'vv');
+```
+
+
+
+```log
+INSERT INTO states VALUES (1, 'Alabama');
+DEBUG main ExclusiveClient| Parsed command:  InsertCommand[values=(1,'Alabama')]
+DEBUG main TransactionStateUpdater| Session ID:  1	Transaction state:  TxnState[no transaction]
+DEBUG main TransactionStateUpdater| No transaction is in progress; auto-starting one!
+DEBUG main TransactionManager| Starting transaction with ID 2
+DEBUG main EventDispatcher| Firing beforeRowInserted
+DEBUG main HeapFileTableManager| Adding new tuple of size 14 bytes.
+DEBUG main BufferManager| Requested page [STATES.tbl,1] is NOT in page-cache.
+DEBUG main HeapFileTableManager| Reached end of data file without finding space for new tuple.
+DEBUG main HeapFileTableManager| Creating new page 1 to store new tuple.
+DEBUG main BufferManager| Requested page [STATES.tbl,1] is NOT in page-cache.
+DEBUG main FileManager| Requested page 1 doesn't yet exist in file STATES.tbl; creating.
+DEBUG main FileManager| Set file STATES.tbl length to 16384
+DEBUG main BufferManager| Adding page [STATES.tbl,1] to page-cache.
+DEBUG main BufferManager| Session 1 is pinning page [STATES.tbl,1].  New pin-count is 1.
+DEBUG main DataPage| Allocating space for new 14-byte tuple.
+DEBUG main DataPage| Current number of slots on page:  0
+DEBUG main DataPage| No empty slot available.  Adding a new slot.
+DEBUG main DataPage| Tuple will get slot 0.  Final number of slots:  1
+DEBUG main DataPage| New tuple of 14 bytes will reside at location [8178, 8192).
+DEBUG main HeapFileTableManager| New tuple will reside on page 1, slot 0.
+DEBUG main TransactionManager| Recording page-update for page 1 of file STATES.tbl
+DEBUG main WALManager| Writing a START_TXN record for transaction 2 at LSN LSN[00000:00000099]
+DEBUG main WALManager| Opening WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+DEBUG main BufferManager| Requested page [wal-00000.log,0] is in page-cache.
+DEBUG main BufferManager| Session 1 is pinning page [wal-00000.log,0].  New pin-count is 1.
+DEBUG main WALManager| Next-LSN value is now LSN[00000:00000105]
+DEBUG main WALManager| Writing an UPDATE_PAGE record for transaction 2 at LSN LSN[00000:00000105]
+DEBUG main WALManager| Opening WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+DEBUG main BufferManager| Requested page [wal-00000.log,0] is in page-cache.
+DEBUG main WALManager| Skipping identical bytes starting at index 0
+DEBUG main WALManager| Recording changed bytes starting at index 1
+DEBUG main WALManager| Found 3 changed bytes starting at index 1
+DEBUG main WALManager| Skipping identical bytes starting at index 4
+DEBUG main WALManager| Recording changed bytes starting at index 8182
+DEBUG main WALManager| Found 10 changed bytes starting at index 8182
+DEBUG main EventDispatcher| Firing afterRowInserted
+DEBUG main IndexUpdater| Adding tuple to indexes for table STATES
+DEBUG main TransactionStateUpdater| Session ID:  1	Transaction state:  TxnState[txnID=2, userStarted=false, loggedStart=true, lastLSN=LSN[00000:00000105]]
+DEBUG main TransactionStateUpdater| An auto-started transaction is in progress; committing it!
+DEBUG main WALManager| Writing a COMMIT_TXN record for transaction 2 at LSN LSN[00000:00000170]
+DEBUG main WALManager| Opening WAL file wal-00000.log
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+DEBUG main BufferManager| Requested page [wal-00000.log,0] is in page-cache.
+DEBUG main WALManager| Next-LSN value is now LSN[00000:00000182]
+DEBUG main BufferManager| Requested file wal-00000.log is in file-cache.
+INFO  main BufferManager| Writing all dirty pages for file wal-00000.log to disk (with sync).
+DEBUG main BufferManager|     Saving page [wal-00000.log,0] to disk.
+DEBUG main BufferManager| Syncing file wal-00000.log
+INFO  main FileManager| Synchronizing database file to disk:  wal-00000.log
+DEBUG main BufferManager| Requested file txnstate.dat is in file-cache.
+DEBUG main BufferManager| Requested page [txnstate.dat,0] is in page-cache.
+DEBUG main BufferManager| Session 1 is pinning page [txnstate.dat,0].  New pin-count is 1.
+INFO  main BufferManager| Writing all dirty pages for file txnstate.dat to disk (with sync).
+DEBUG main BufferManager|     Saving page [txnstate.dat,0] to disk.
+DEBUG main BufferManager| Syncing file txnstate.dat
+INFO  main FileManager| Synchronizing database file to disk:  txnstate.dat
+DEBUG main TransactionManager| WAL was successfully forced to LSN LSN[00000:00000182] (plus 0 bytes)
+DEBUG main TransactionManager| Transaction completed, resetting transaction state.
+DEBUG main BufferManager| Session 1 is unpinning page [wal-00000.log,0].  New pin-count is 0.
+DEBUG main BufferManager| Session 1 is unpinning page [txnstate.dat,0].  New pin-count is 0.
+DEBUG main BufferManager| Session 1 is unpinning page [STATES.tbl,1].  New pin-count is 0.
+CMD> 
+```
+
+
+
+### 查询日志
+
+select *  from states;
+
+
+
+###  DROP TABLE
+
+```
+drop table SS;
+DEBUG main ExclusiveClient| Parsed command:  DropTable[SS]
+DEBUG main TransactionStateUpdater| Session ID:  1	Transaction state:  TxnState[no transaction]
+DEBUG main TransactionStateUpdater| No transaction is in progress; auto-starting one!
+DEBUG main TransactionManager| Starting transaction with ID 7
+INFO  main BufferManager| Flushing all pages for file SS.tbl from the Buffer Manager.
+DEBUG main BufferManager|     Evicting page [SS.tbl,0] from page-cache.
+DEBUG main BufferManager|     Evicted page is dirty; must save to disk.
+DEBUG main TransactionManager| Request to force WAL to LSN LSN[00000:00000360] unnecessary; already forced to LSN[00000:00000439].
+INFO  main BufferManager| Removing DBFile SS.tbl from buffer manager
+INFO  main BufferManager| Flushing all pages for file SS.tbl from the Buffer Manager.
+INFO  main FileManager| Synchronizing database file to disk:  SS.tbl
+INFO  main FileManager| Closing database file:  SS.tbl
+DEBUG main TransactionStateUpdater| Session ID:  1	Transaction state:  TxnState[txnID=7, userStarted=false, loggedStart=false, lastLSN=null]
+DEBUG main TransactionStateUpdater| An auto-started transaction is in progress; committing it!
+DEBUG main TransactionManager| Transaction 7 has made no changes; not recording transaction-commit to WAL.
+DEBUG main TransactionManager| Transaction completed, resetting transaction state.
+CMD> 
+```
+
 
 
 

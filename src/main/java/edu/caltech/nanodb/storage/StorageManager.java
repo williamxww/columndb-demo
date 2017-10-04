@@ -131,27 +131,12 @@ public class StorageManager {
      * @return the current page size to use for new database files
      */
     public static int getCurrentPageSize() {
-        // Use the default page size if no property value is specified.
-        int pageSize = DBFile.DEFAULT_PAGESIZE;
+        int pageSize = PropertiesUtil.getInt(PROP_PAGESIZE, DBFile.DEFAULT_PAGESIZE);
+        if (!DBFile.isValidPageSize(pageSize)) {
+            logger.warn("Current value of " + PROP_PAGESIZE + " property is not a valid page size:  " + pageSize);
 
-        String pageSizeStr = System.getProperty(PROP_PAGESIZE);
-        if (pageSizeStr != null) {
-            try {
-                pageSize = Integer.parseInt(pageSizeStr);
-            }
-            catch (NumberFormatException nfe) {
-                logger.warn("Current value of " + PROP_PAGESIZE +
-                    " property is not an integer:  \"" + pageSizeStr + "\"");
-            }
-
-            if (!DBFile.isValidPageSize(pageSize)) {
-                logger.warn("Current value of " + PROP_PAGESIZE +
-                    " property is not a valid page size:  " + pageSize);
-
-                pageSize = DBFile.DEFAULT_PAGESIZE;
-            }
+            pageSize = DBFile.DEFAULT_PAGESIZE;
         }
-
         return pageSize;
     }
 
@@ -259,8 +244,8 @@ public class StorageManager {
 
         fileTypeManagers.put(DBFileType.BTREE_INDEX_FILE,
             new BTreeIndexManager(this));
-        
-        fileTypeManagers.put(DBFileType.COLUMNSTORE_DATA_FILE, 
+
+        fileTypeManagers.put(DBFileType.COLUMNSTORE_DATA_FILE,
         	new ColStoreTableManager(this));
     }
 
@@ -293,7 +278,7 @@ public class StorageManager {
         return transactionManager;
     }
 
-    
+
     public DBFile createDBFile(String filename, DBFileType type)
         throws IOException {
 
@@ -320,8 +305,8 @@ public class StorageManager {
 
         return dbFile;
     }
-    
-    
+
+
     private void closeDBFile(DBFile dbFile) throws IOException {
         bufferManager.removeDBFile(dbFile);
         fileManager.closeDBFile(dbFile);
@@ -453,13 +438,13 @@ public class StorageManager {
         return loadDBPage(dbFile, pageNo, false);
     }
 
-    
+
     public void logDBPageWrite(DBPage dbPage) throws IOException {
         // If the page is dirty, record its changes to the write-ahead log.
         if (transactionManager != null)
             transactionManager.recordPageUpdate(dbPage);
     }
-    
+
 
     public void unpinDBPage(DBPage dbPage) {
         // Unpin the page so that it may be evicted.
@@ -508,36 +493,31 @@ public class StorageManager {
 
         // Get the file type from the table file info object.
         DBFileType type = tblFileInfo.getFileType();
-        
+
         // Maximum page size for column store files. Working OLAP data has huge
         // columns.
-        if (type == DBFileType.COLUMNSTORE_DATA_FILE)
-        	pageSize = DBFile.MAX_PAGESIZE;
-        
+        if (type == DBFileType.COLUMNSTORE_DATA_FILE) {
+            pageSize = DBFile.MAX_PAGESIZE;
+        }
+
         TableManager tblManager = getTableManager(type);
 
-        
         DBFile dbFile = fileManager.createDBFile(tblFileName, type, pageSize);
-        	logger.debug("Created new DBFile for table " + tableName +
-        	" at path " + dbFile.getDataFile());
+        logger.debug("Created new DBFile for table " + tableName + " at path " + dbFile.getDataFile());
 
         tblFileInfo.setDBFile(dbFile);
-        // If we have a column store, we need to create a lot more DBFiles for 
-        // the table.
-        if (type == DBFileType.COLUMNSTORE_DATA_FILE)
-        {
-        	TableSchema schema = tblFileInfo.getSchema();
-        	for (int i = 0; i < schema.numColumns(); i++)
-        	{
-        		dbFile = fileManager.createDBFileinDir(tableName, 
-        			schema.getColumnInfo(i).getColumnName().toString() + ".tbl", 
-        			type, pageSize);
-        		logger.debug("Created new DBFile for table " + tableName +
-                	" column " + schema.getColumnInfo(i).getColumnName() + 
-                	" at path " + dbFile.getDataFile());
-        		
-        		tblFileInfo.addDBFile(dbFile);
-        	}
+        // If we have a column store, we need to create a lot more DBFiles for the table.
+        if (type == DBFileType.COLUMNSTORE_DATA_FILE) {
+            // 列式存储，每个列形成一个文件
+            TableSchema schema = tblFileInfo.getSchema();
+            for (int i = 0; i < schema.numColumns(); i++) {
+                dbFile = fileManager.createDBFileinDir(tableName,
+                        schema.getColumnInfo(i).getColumnName().toString() + ".tbl", type, pageSize);
+                logger.debug("Created new DBFile for table " + tableName + " column "
+                        + schema.getColumnInfo(i).getColumnName() + " at path " + dbFile.getDataFile());
+
+                tblFileInfo.addDBFile(dbFile);
+            }
         }
 
         // Cache this table since it's now considered "open".
@@ -626,7 +606,7 @@ public class StorageManager {
         // the table.
         DBFileType type = dbFile.getType();
         getTableManager(type).beforeCloseTable(tblFileInfo);
-        
+
         for (DBFile dbf : tblFileInfo.dbFiles())
         {
         	closeDBFile(dbf);
@@ -646,7 +626,7 @@ public class StorageManager {
         // As odd as it might seem, we need to open the table so that we can
         // drop all related objects, such as indexes on the table, etc.
         TableFileInfo tblFileInfo = openTable(tableName);
-        
+
         TableSchema schema = tblFileInfo.getSchema();
         for (String indexName : schema.getIndexes().keySet())
             dropIndex(tblFileInfo, indexName);
@@ -654,12 +634,12 @@ public class StorageManager {
         // Close the table.  This will purge out all dirty pages for the table
         // as well.
         closeTable(tblFileInfo);
-        
+
         for (DBFile dbf : tblFileInfo.dbFiles())
         {
         	fileManager.deleteDBFile(dbf);
         }
-        
+
         if (tblFileInfo.getFileType() == DBFileType.COLUMNSTORE_DATA_FILE)
         {
         	// Have to delete the directory as well...
@@ -667,14 +647,14 @@ public class StorageManager {
         }
     }
 
-    
+
     public void dropIndex(TableFileInfo tblFileInfo, String indexName)
         throws IOException {
 
 
     }
-    
-    
+
+
 
     /*========================================================================
      * CODE RELATED TO INDEX FILES
@@ -745,7 +725,7 @@ public class StorageManager {
         String prefix = idxManager.getUnnamedIndexPrefix(idxFileInfo);
         if (idxFileInfo.getIndexInfo().getConstraintType() ==
             TableConstraintType.PRIMARY_KEY) {
-            
+
             indexName = prefix;
             indexFilename = getIndexFileName(indexName);
             f = new File(baseDir, indexFilename);

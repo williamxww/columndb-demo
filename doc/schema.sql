@@ -1,4 +1,4 @@
 CREATE TABLE states (
-  state_id   INTEGER,
-  state_name VARCHAR(30)
+  id   INTEGER,
+  name VARCHAR(30)
 );

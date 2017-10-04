@@ -593,10 +593,10 @@ public class ColStoreTableManager implements TableManager {
 		
 		while (object != null) {
 		
-			logger.debug("Entry: " + object);
+//			logger.debug("Entry: " + object);
 			
 			if (UncompressedPage.writeBlock(dbPage, object, count, info.getType())) {
-				logger.debug("Written to file!");
+				logger.debug("Written to file: " + object);
 			}
 			else
 			{

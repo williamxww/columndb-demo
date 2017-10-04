@@ -31,7 +31,7 @@ public class FunctionDirectory {
      *         some point to make this constructor public, that's fine.
      */
     private FunctionDirectory() {
-
+        initBuiltinFunctions();
     }
 
     

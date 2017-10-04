@@ -48,6 +48,7 @@ public class DBFile {
     /** 
      * The maximum page size is 64K bytes. This is the default page size for
      * DBFiles used for column oriented tables.
+     * 列存储默认64KB
      */
     public static final int MAX_PAGESIZE = 65536;
 
