@@ -1,9 +1,22 @@
+### 用例
+
+```sql
+CREATE TABLE states (
+  id   INTEGER,
+  name VARCHAR(30)
+);
+INSERT INTO states VALUES (7, 'A');
+INSERT INTO states VALUES (8, 'B');
+```
+
+
+
+
+
 ### 专业术语
 
 schema : column info 的集合
 RLE:run-length encoding,变动长度编码法,游程编码是一种简单的非破坏性资料压缩法
-
-
 
 
 
@@ -18,28 +31,9 @@ LogSequenceNumber，lsn是联系dirty page，redo log record和redo log file的�
 
 
 
-edu.caltech.nanodb.storage.writeahead.WALManager#doRecovery
-
-firstLSN:需要恢复时，从此处开始恢复
-
-nextLSN：需要写时，从此处接着写
 
 
 
-```
-TransactionStatePage
-此page里存放下一个事务号，恢复时的起始LSN和写时的下一个LSN地址。
-* -------------------------------------------------------------------------------------------
-* |2 bytes|  4 bytes    |2 bytes          |  4 bytes       |2 bytes         |  4 bytes      |
-* |   ??  | NEXT_TXN_ID |FIRST_LSN_FILENUM|FIRST_LSN_OFFSET|NEXT_LSN_FILENUM|NEXT_LSN_OFFSET|
-* -------------------------------------------------------------------------------------------
-```
-
-LogSequenceNumber：logFileNo+offset，它指明了某次日志记录在文件中的起始位置。
-
-
-
-txnstat.dat 只记录某次事务在日志文件(.log文件)中的起始位置（firstLSN），下次写日志的起始位置（nextLSN）和下次事务的id
 
 
 
@@ -71,6 +65,106 @@ at edu.caltech.nanodb.commands.InsertCommand.execute(InsertCommand.java:165)
 at edu.caltech.nanodb.server.NanoDBServer.doCommand(NanoDBServer.java:114)
 at edu.caltech.nanodb.client.ExclusiveClient.main(ExclusiveClient.java:106)
 ```
+
+### 文件存储
+
+edu.caltech.nanodb.storage.StorageManager#createDBFile
+
+createDBFile时，就写入了FileType和页大小encodePageSize
+
+
+
+#### xxx.tbl
+
+记录表结构的文件
+
+headPage
+
+```
+// 存储整体结构数据
+|    1B  |       1B     |   4B    |
+|FileType|encodePageSize|chemaSize|
+// 存储列信息
+|  1B      |  1B  |   1B     |  XB   |  1B  |   1B     |  XB   |...
+|numColumns|TypeID|colNameLen|colName|TypeID|colNameLen|colName|...
+// 存储约束
+|  1B          |  1B          |  1B          |  1B   |  1B    |
+|numConstraints|ConstraintType|ConstraintName|keySize|ColIndex|
+// 存储表统计信息
+|NumDataPages|NumTuples|AvgTupleSize|
+// 列统计信息
+|nullMask|numUnique|numNull|colType|minVal|colType|maxVal|
+```
+
+
+
+第二页(pageNo:1)
+
+numSlots:总槽位数
+
+slotVal: 其中存放的是tuple的Offset
+
+tuple的值是从page的末尾开始存放的，在存放tuple前会先放置nullFlag，每个bit代表此tuple在对应列是否为Null
+
+edu.caltech.nanodb.storage.heapfile.HeapFilePageTuple#storeNewTuple
+
+```
+|  2 B   |  2 B  |  2 B  |...
+|numSlots|slotVal|slotVal|...
+.............
+
+|nullFlag|tuple col1|tuple col2|
+```
+
+
+
+
+
+#### txnstat.dat
+
+txnstat.dat 只记录某次事务在日志文件(.log文件)中的起始位置（firstLSN），下次写日志的起始位置（nextLSN）和下次事务的id
+edu.caltech.nanodb.storage.writeahead.WALManager#doRecovery
+firstLSN:		需要恢复时，从此处开始恢复
+nextLSN:	需要写时，从此处接着写
+
+LogSequenceNumber：logFileNo+offset，它指明了某次日志记录在文件中的起始位置。
+
+
+
+```
+|    1B  |       1B     |   4B      |      2B      |      4B      |      2B     |      4B     |
+|FileType|encodePageSize|NEXT_TXN_ID|firstLSNFileNo|firstLSNOffset|nextLSNFileNo|nextLSNOffset|
+```
+
+
+
+#### wal-xxx.log
+
+typeId:21
+
+wal-00000.log: write ahead log
+
+edu.caltech.nanodb.storage.writeahead.WALManager#openWALFile
+
+undo:修改前的数据
+
+redo:修改后的数据
+
+```
+|    1B  |       1B     |   4B    |
+|FileType|encodePageSize|--|
+
+|    1B    | 4B  |    1B    |
+|WALRecType|txnId|WALRecType|
+
+|    1B    | 4B  |      2B     |      4B     | x B      |  2B  |2B|
+|WALRecType|txnId|prevLSNFileNo|prevLSNOffset|DBFileName|PageNo|-1|
+
+| 2B  | 2B | xB | xB |
+|index|size|undo|redo|
+```
+
+
 
 
 
@@ -125,8 +219,8 @@ next_write_pos:写下一条记录时的起始位置
 |    1B  |       1B     |   4B   |  4B |      4B   	  |
 |FileType|encodePageSize|encoding|count|next_write_pos|
 
-|  4B   |4B |
-|int val|pos|colVal|pos|colVal|pos|...
+|  4B   |  4B  |
+|int val|  pos |int val|pos|...
 
 |      4B      |     X B   |  4B   |
 |varchar length|varchar val|  pos  |varchar length|varchar val|  pos  |

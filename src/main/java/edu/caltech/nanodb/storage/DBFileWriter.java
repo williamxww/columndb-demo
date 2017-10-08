@@ -10,8 +10,8 @@ import org.apache.log4j.Logger;
 /**
  */
 public class DBFileWriter extends DBFileReader {
-    /** A logging object for reporting anything interesting that happens. */
-    private static Logger logger = Logger.getLogger(DBFileReader.class);
+    
+    private static Logger logger = Logger.getLogger(DBFileWriter.class);
 
 
     public DBFileWriter(DBFile dbFile) {

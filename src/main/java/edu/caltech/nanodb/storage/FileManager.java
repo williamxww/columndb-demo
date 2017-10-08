@@ -55,9 +55,9 @@ public class FileManager {
     
 
     /**
+     * 获取每页开始的字节偏移量，pageNo*pageSize<br/>
      * This helper function calculates the file-position of the specified page.
      * Obviously, this value is dependent on the page size.
-     *
      * @param dbFile the database file to compute the page-start for
      * @param pageNo the page number to access
      *
@@ -194,6 +194,7 @@ public class FileManager {
 
 
     /**
+     * 从dbFile中读取一页数据到指定页<br/>
      * Loads a page from the underlying data file, and returns a new
      * {@link DBPage} object containing the data.  The <tt>create</tt> flag
      * controls whether an error is propagated, if the requested page is past
@@ -211,7 +212,6 @@ public class FileManager {
      *        doesn't already exist
      *
      * @return the newly loaded database page
-     *
      * @throws IllegalArgumentException if the page number is negative
      *
      * @throws java.io.EOFException if the requested page is not in the data file,

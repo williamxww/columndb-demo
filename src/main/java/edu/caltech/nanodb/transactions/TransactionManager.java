@@ -107,9 +107,8 @@ public class TransactionManager {
     private TransactionStatePage createTxnStateFile() throws IOException {
         // Create a brand new transaction-state file for the Transaction Manager
         // to use.
-
-        DBFile dbfTxnState;
-        dbfTxnState = storageManager.createDBFile(TXNSTATE_FILENAME,
+        // 创建事务文件并写入fileType和pageSize
+        DBFile dbfTxnState = storageManager.createDBFile(TXNSTATE_FILENAME,
             DBFileType.TXNSTATE_FILE);
 
         DBPage dbpTxnState = storageManager.loadDBPage(dbfTxnState, 0);

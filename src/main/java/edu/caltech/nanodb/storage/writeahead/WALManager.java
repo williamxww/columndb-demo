@@ -43,7 +43,7 @@ import edu.caltech.nanodb.util.ArrayUtil;
  */
 public class WALManager {
 
-    /** A logging object for reporting anything interesting that happens. */
+
     private static Logger logger = Logger.getLogger(WALManager.class);
 
 

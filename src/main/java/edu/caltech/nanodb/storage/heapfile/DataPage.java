@@ -129,10 +129,10 @@ public class DataPage {
 
 
     /**
+     * 将值（各个tuple的offset）放到slot中，
      * This static helper function sets the value for the specified slot.  This
      * should either be the offset of the start of a tuple in the data
      * page, or it should be {@link #EMPTY_SLOT} if the slot is empty.
-     *
      * @param dbPage the data page to set the slot-value for
      * @param slot the slot to set the value of; valid values are from 0 to
      *        {@link #getNumSlots} - 1.
