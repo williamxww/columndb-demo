@@ -1,6 +1,5 @@
 package edu.caltech.nanodb.client;
 
-
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,7 +17,6 @@ import edu.caltech.nanodb.server.NanoDBServer;
 import edu.caltech.nanodb.sqlparse.NanoSqlLexer;
 import edu.caltech.nanodb.sqlparse.NanoSqlParser;
 
-
 /**
  * This class is used for starting the NanoDB database in exclusive mode, where
  * only a single client interacts directly with the database system.
@@ -26,15 +24,11 @@ import edu.caltech.nanodb.sqlparse.NanoSqlParser;
 public class ExclusiveClient {
     private static Logger logger = Logger.getLogger(ExclusiveClient.class);
 
-
     public static final String LOGGING_CONF_FILE = "logging.conf";
-
 
     public static final String CMDPROMPT_FIRST = "CMD> ";
 
-
     public static final String CMDPROMPT_NEXT = "   > ";
-
 
     /**
      * This class provides a simple wrapper around the NanoSQL Lexer so that the
@@ -43,10 +37,21 @@ public class ExclusiveClient {
      */
     private static class InteractiveLexer extends NanoSqlLexer {
 
-        public InteractiveLexer(InputStream in) { super(in); }
-        public InteractiveLexer(Reader in) { super(in); }
-        public InteractiveLexer(InputBuffer ib) { super(ib); }
-        public InteractiveLexer(LexerSharedInputState state) { super(state); }
+        public InteractiveLexer(InputStream in) {
+            super(in);
+        }
+
+        public InteractiveLexer(Reader in) {
+            super(in);
+        }
+
+        public InteractiveLexer(InputBuffer ib) {
+            super(ib);
+        }
+
+        public InteractiveLexer(LexerSharedInputState state) {
+            super(state);
+        }
 
         private boolean ignoreNewline = false;
 
@@ -64,13 +69,11 @@ public class ExclusiveClient {
         }
     }
 
-
     public static void main(String args[]) {
         // Start up the various database subsystems that require initialization.
         try {
             NanoDBServer.startup();
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             System.out.println("DATABASE STARTUP FAILED:");
             e.printStackTrace(System.out);
             System.exit(1);
@@ -79,7 +82,7 @@ public class ExclusiveClient {
         System.out.println("Welcome to NanoDB.  Exit with EXIT or QUIT command.\n");
 
         DataInputStream input = new DataInputStream(System.in);
-        //NanoSqlLexer lexer = new NanoSqlLexer(input);
+        // NanoSqlLexer lexer = new NanoSqlLexer(input);
         InteractiveLexer lexer = new InteractiveLexer(input);
         NanoSqlParser parser = new NanoSqlParser(lexer);
 
@@ -99,16 +102,13 @@ public class ExclusiveClient {
                     break;
 
                 NanoDBServer.doCommand(cmd, false);
-            }
-            catch (RecognitionException e) {
+            } catch (RecognitionException e) {
                 System.out.println("Parser error:  " + e.getMessage());
                 logger.error("Parser error", e);
-            }
-            catch (TokenStreamException e) {
+            } catch (TokenStreamException e) {
                 System.out.println("Input stream error:  " + e.getMessage());
                 logger.error("Input stream error", e);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 System.out.println("Unexpected error:  " + e.getMessage());
                 logger.error("Unexpected error", e);
             }
@@ -121,4 +121,3 @@ public class ExclusiveClient {
         }
     }
 }
-
