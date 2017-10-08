@@ -1,6 +1,7 @@
 package com.bow.lab.antlr.sqlite;
 
 import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.xml.bind.SchemaOutputResolver;
 import java.util.HashSet;
@@ -25,6 +26,8 @@ public class DemoListener extends SQLiteBaseListener {
     @Override
     public void enterCompound_select_stmt(SQLiteParser.Compound_select_stmtContext ctx) {
         System.out.println("enterCompound_select_stmt");
+        TerminalNode node = ctx.K_LIMIT();
+        System.out.println(node);
     }
 
     @Override
