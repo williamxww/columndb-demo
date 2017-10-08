@@ -7,6 +7,9 @@ CREATE TABLE states (
 );
 INSERT INTO states VALUES (7, 'A');
 INSERT INTO states VALUES (8, 'B');
+INSERT INTO states VALUES (9, 'C');
+INSERT INTO states VALUES (10, 'D');
+INSERT INTO states VALUES (11, 'E');
 ```
 
 
@@ -17,13 +20,6 @@ INSERT INTO states VALUES (8, 'B');
 
 schema : column info 的集合
 RLE:run-length encoding,变动长度编码法,游程编码是一种简单的非破坏性资料压缩法
-
-
-
-
-DataPage   开始2字节表示总slot数 ，后面每个slot占用一个short
-
-
 
 
 
@@ -100,6 +96,8 @@ headPage
 
 第二页(pageNo:1)
 
+DataPage   开始2字节表示总slot数 ，后面每个slot占用一个short
+
 numSlots:总槽位数
 
 slotVal: 其中存放的是tuple的Offset
@@ -129,8 +127,6 @@ nextLSN:	需要写时，从此处接着写
 
 LogSequenceNumber：logFileNo+offset，它指明了某次日志记录在文件中的起始位置。
 
-
-
 ```
 |    1B  |       1B     |   4B      |      2B      |      4B      |      2B     |      4B     |
 |FileType|encodePageSize|NEXT_TXN_ID|firstLSNFileNo|firstLSNOffset|nextLSNFileNo|nextLSNOffset|
@@ -152,7 +148,7 @@ redo:修改后的数据
 
 ```
 |    1B  |       1B     |   4B    |
-|FileType|encodePageSize|--|
+|FileType|encodePageSize|---------|
 
 |    1B    | 4B  |    1B    |
 |WALRecType|txnId|WALRecType|

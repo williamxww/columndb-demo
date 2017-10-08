@@ -28,8 +28,8 @@ public class App {
         // 再使用 tokens 构造语法分析器 parser,至此已经完成词法分析和语法分析的准备工作
         DemoParser parser = new DemoParser(tokens);
 
-        // 最终调用语法分析器的规则 prog，完成对表达式的验证
-        parser.prog();
+        // 最终调用语法分析器的规则 stat，完成对表达式的验证
+        parser.stat();
     }
 
     public static void main(String[] args) throws Exception {

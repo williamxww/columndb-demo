@@ -11,8 +11,6 @@ grammar Demo;
 }
 
 //parser
-prog:stat
-;
 stat:expr|NEWLINE
 ;
 
@@ -26,7 +24,11 @@ atom:'('expr')'
 ;
 
 //lexer
+NEWLINE:'\r'?'\n';
+// WS:(' '|'\t'|'\n'|'\r')+{skip();};
+LINE_COMMENT : '//' .*? '\n' -> skip ;
+COMMENT : '/*' .*? '*/' -> skip ;
+WS : [ \t\n\r]+ -> skip ;
+
 ID:('a'..'z'|'A'..'Z')+;
 INT:'0'..'9'+;
-NEWLINE:'\r'?'\n';
-WS:(' '|'\t'|'\n'|'\r')+{skip();};
