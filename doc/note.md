@@ -10,6 +10,7 @@ INSERT INTO states VALUES (8, 'B');
 INSERT INTO states VALUES (9, 'C');
 INSERT INTO states VALUES (10, 'D');
 INSERT INTO states VALUES (11, 'E');
+select * from dual where name =a order by age asc limit 10 offset 1;
 ```
 
 
