@@ -1,11 +1,6 @@
 package com.bow.lab.antlr.sqlite;
 
-import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
 import org.antlr.v4.runtime.tree.TerminalNode;
-
-import javax.xml.bind.SchemaOutputResolver;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * @author vv
@@ -33,6 +28,11 @@ public class DemoListener extends SQLiteBaseListener {
     @Override
     public void enterExpr(SQLiteParser.ExprContext ctx) {
         System.out.println("enterExpr");
+        if (ctx.function_name() != null) {
+            System.out.println(ctx.function_name().getText());
+        }else if(ctx.select_stmt() != null){
+            System.out.println(ctx.select_stmt().getText());
+        }
     }
 
     @Override
