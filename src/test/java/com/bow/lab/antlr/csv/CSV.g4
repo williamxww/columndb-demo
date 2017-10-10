@@ -1,7 +1,7 @@
 grammar CSV;
 
 @header {
-  // package csv;
+//  package csv;
 }
 
 file returns [List<List<String>> data]
@@ -19,6 +19,7 @@ value returns [String val]
  | QuotedValue
    {
      $val = $QuotedValue.text;
+     System.out.println("quoted "+$val);
      $val = $val.substring(1, $val.length()-1); // remove leading- and trailing quotes
      $val = $val.replace("\"\"", "\""); // replace all `""` with `"`
    }
@@ -33,6 +34,7 @@ LineBreak
  | '\r'
  ;
 
+// 非 ,\r\n" 符号
 SimpleValue
  : ~[,\r\n"]+
  ;
