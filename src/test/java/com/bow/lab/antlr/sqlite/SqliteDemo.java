@@ -54,10 +54,19 @@ public class SqliteDemo {
     @Test
     public void common() {
         String sql = "SELECT log AS x FROM t1 \n" + "GROUP BY x\n" + "HAVING count(*) >= 4 \n" + "ORDER BY max(n) + 0";
-        String s = "select * from dual where name = 'a' order by name desc limit 5 offset 3";
-        SQLiteParser parser = parse(sql);
+        String select = "select * from dual where name = 'a' order by name desc limit 5 offset 3";
+        String drop = "drop table vv";
+        String create = "create table vv( name varchar, age int)";
+        SQLiteParser parser = parse(create);
+        ParseTree tree = parser.parse();
+        ParseTreeWalker.DEFAULT.walk(new DemoListener(), tree);
+    }
+
+    @Test
+    public void select() {
+        String select = "select * from dual where name = 'a' order by name desc limit 5 offset 3";
+        SQLiteParser parser = parse(select);
         ParseTree tree = parser.select_stmt();
-        // ParseTree tree1 = parser.compound_select_stmt();
         ParseTreeWalker.DEFAULT.walk(new DemoListener(), tree);
     }
 
