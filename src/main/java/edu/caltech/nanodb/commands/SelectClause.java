@@ -77,6 +77,16 @@ public class SelectClause {
      */
     private List<OrderByExpression> orderByExprs = new ArrayList<OrderByExpression>();
 
+    /**
+     * 查询数量
+     */
+    private Integer limit = null;
+
+    /**
+     * 偏移量
+     */
+    private Integer offset = null;
+
 
     /**
      * When preparing SQL commands for execution, this value is filled in with
@@ -207,6 +217,21 @@ public class SelectClause {
         return orderByExprs;
     }
 
+    public Integer getLimit() {
+        return limit;
+    }
+
+    public void setLimit(Integer limit) {
+        this.limit = limit;
+    }
+
+    public Integer getOffset() {
+        return offset;
+    }
+
+    public void setOffset(Integer offset) {
+        this.offset = offset;
+    }
 
     /**
      * This method computes the resulting schema from this query, and in the
@@ -381,6 +406,11 @@ public class SelectClause {
 
         if (orderByExprs != null && orderByExprs.size() > 0)
             buf.append("\torder_by=").append(orderByExprs).append('\n');
+
+        if (limit != null)
+            buf.append("\tlimit=").append(limit).append('\n');
+        if (offset != null)
+            buf.append("\toffset=").append(offset).append('\n');
 
         buf.append(']');
 

@@ -1,5 +1,6 @@
 package com.bow.lab.antlr.sqlite;
 
+import edu.caltech.nanodb.commands.SelectCommand;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -28,7 +29,7 @@ public class SqliteDemo {
         return SQLiteParser.ruleNames[ruleContext.getRuleIndex()];
     }
 
-    protected void dumpTree(RuleContext ctx) {
+    private void dumpTree(RuleContext ctx) {
 
         String lispTree = ctx.toStringTree(Arrays.asList(SQLiteParser.ruleNames));
         int indentation = 0;
@@ -52,15 +53,25 @@ public class SqliteDemo {
     }
 
     @Test
-    public void common() {
-        String sql = "SELECT log AS x FROM t1 \n" + "GROUP BY x\n" + "HAVING count(*) >= 4 \n" + "ORDER BY max(n) + 0";
-        String select = "select * from dual where name = 'a' order by name desc limit 5 offset 3";
-        String drop = "drop table vv";
-        String create = "create table vv( name varchar, age int)";
-        SQLiteParser parser = parse(create);
-        ParseTree tree = parser.parse();
-        ParseTreeWalker.DEFAULT.walk(new DemoListener(), tree);
+    public void rule(){
+        String select = "select distinct class from dual where name = 'a'";
+        SQLiteParser parser = parse(select);
+        dumpTree(parser.parse());
     }
+
+    @Test
+	public void common() {
+        String select = "select class from dual where age > 10 group by name order by age asc limit 10 offset 3";
+        String sql = "SELECT log AS x FROM t1 GROUP BY x HAVING count(*) >= 4 ORDER BY max(n)";
+		String drop = "drop table vv";
+		String create = "create table vv( name varchar, age int)";
+		SQLiteParser parser = parse(select);
+		ParseTree tree = parser.parse();
+		DemoListener listener = new DemoListener();
+		ParseTreeWalker.DEFAULT.walk(listener, tree);
+		SelectCommand cmd = listener.getResult();
+		System.out.println(cmd);
+	}
 
     @Test
     public void select() {
