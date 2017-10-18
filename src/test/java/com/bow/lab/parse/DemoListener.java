@@ -1,4 +1,4 @@
-package com.bow.lab.antlr.sqlite;
+package com.bow.lab.parse;
 
 import edu.caltech.nanodb.commands.FromClause;
 import edu.caltech.nanodb.commands.SelectClause;
@@ -8,7 +8,6 @@ import edu.caltech.nanodb.expressions.BooleanOperator;
 import edu.caltech.nanodb.expressions.ColumnName;
 import edu.caltech.nanodb.expressions.ColumnValue;
 import edu.caltech.nanodb.expressions.CompareOperator;
-import edu.caltech.nanodb.expressions.ExistsOperator;
 import edu.caltech.nanodb.expressions.Expression;
 import edu.caltech.nanodb.expressions.LiteralValue;
 import edu.caltech.nanodb.expressions.OrderByExpression;
@@ -16,13 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Stack;
 
-import static com.bow.lab.antlr.sqlite.SQLiteParser.*;
+import static com.bow.lab.parse.SQLiteParser.*;
 
 /**
  * @author vv

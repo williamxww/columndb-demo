@@ -23,11 +23,11 @@
         </dependency>
 
         <!-- log4j2 -->
-        <!--<dependency>-->
-            <!--<groupId>org.slf4j</groupId>-->
-            <!--<artifactId>slf4j-api</artifactId>-->
-            <!--<version>1.7.20</version>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.20</version>
+        </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
@@ -97,6 +97,30 @@
 
     <build>
         <plugins>
+
+            <!-- 指定多个源代码目录、多个资源文件目录 -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.10</version>
+                <executions>
+                    <execution>
+                        <id>add-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <!-- 多个源码目录，默认只有src/main/java，其他的不会编译成class -->
+                            <sources>
+                                <source>gen</source>
+                                <source>src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- 编译插件 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -109,6 +133,7 @@
                 </configuration>
             </plugin>
 
+
             <!-- antlr插件 -->
             <plugin>
                 <groupId>org.antlr</groupId>
@@ -117,18 +142,25 @@
                 <executions>
                     <execution>
                         <id>antlr</id>
+                        <!-- none:从不执行 -->
+                        <phase>generate-sources</phase>
                         <goals>
                             <goal>antlr4</goal>
                         </goals>
-                        <!-- none:从不执行 -->
-                        <phase>none</phase>
+
+                        <configuration>
+                            <sourceDirectory>src/main/java/com/bow/lab/parse/</sourceDirectory>
+                            <arguments>
+                                <argument>-o</argument>
+                                <argument>gen/com/bow/lab/parse/</argument>
+                                <argument>-package</argument>
+                                <argument>com.bow.lab.parse</argument>
+                            </arguments>
+                            <listener>true</listener>
+                            <treatWarningsAsErrors>true</treatWarningsAsErrors>
+                        </configuration>
                     </execution>
                 </executions>
-                <configuration>
-                    <outputDirectory>src/test/java</outputDirectory>
-                    <listener>true</listener>
-                    <treatWarningsAsErrors>true</treatWarningsAsErrors>
-                </configuration>
             </plugin>
         </plugins>
     </build>

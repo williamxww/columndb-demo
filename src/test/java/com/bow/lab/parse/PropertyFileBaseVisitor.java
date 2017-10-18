@@ -1,4 +1,4 @@
-package com.bow.lab.antlr.sqlite;
+package com.bow.lab.parse;
 
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 

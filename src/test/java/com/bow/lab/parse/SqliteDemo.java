@@ -1,4 +1,4 @@
-package com.bow.lab.antlr.sqlite;
+package com.bow.lab.parse;
 
 import edu.caltech.nanodb.commands.SelectCommand;
 import org.antlr.v4.runtime.ANTLRInputStream;
