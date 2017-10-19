@@ -10,6 +10,7 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.commands.Command;
+import edu.caltech.nanodb.commands.ExitCommand;
 import edu.caltech.nanodb.server.NanoDBServer;
 import edu.caltech.nanodb.util.StringUtil;
 
@@ -36,6 +37,7 @@ public class Demo {
         System.out.println("Welcome to NanoDB.  Exit with EXIT or QUIT command.\n");
 
         // 获取命令并执行
+        //TODO 让输入流碰到';'就认为一句命令已经输入完毕
         Scanner scanner = new Scanner(System.in);
         System.out.print(CMD_PROMPT);
         while (scanner.hasNext()) {
@@ -43,10 +45,6 @@ public class Demo {
                 String line = scanner.nextLine();
                 if (!StringUtil.isBlank(line)) {
                     line = line.trim();
-                    // 退出
-                    if ("exit".equals(line) || "bye".equals(line)) {
-                        break;
-                    }
 
                     // 词法&语法解析
                     SQLiteLexer lexer = new SQLiteLexer(CharStreams.fromString(line));
@@ -57,6 +55,10 @@ public class Demo {
                     ParseTreeWalker.DEFAULT.walk(listener, tree);
                     Command cmd = listener.getResult();
                     logger.debug("Parsed command:  " + cmd);
+                    if (cmd == null || cmd instanceof ExitCommand) {
+                        // 关闭服务
+                        break;
+                    }
                     NanoDBServer.doCommand(cmd, false);
                 }
             } catch (Exception e) {

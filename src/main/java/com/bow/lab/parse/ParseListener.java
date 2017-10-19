@@ -1,5 +1,13 @@
 package com.bow.lab.parse;
 
+import java.math.BigDecimal;
+import java.util.Stack;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import edu.caltech.nanodb.commands.Command;
+import edu.caltech.nanodb.commands.ExitCommand;
 import edu.caltech.nanodb.commands.FromClause;
 import edu.caltech.nanodb.commands.SelectClause;
 import edu.caltech.nanodb.commands.SelectCommand;
@@ -11,29 +19,25 @@ import edu.caltech.nanodb.expressions.CompareOperator;
 import edu.caltech.nanodb.expressions.Expression;
 import edu.caltech.nanodb.expressions.LiteralValue;
 import edu.caltech.nanodb.expressions.OrderByExpression;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigDecimal;
-import java.util.Stack;
 
 /**
- * 解析SQL
+ * 解析SQL, 每一次输入都会有个ParseListener实例,一次只能解析一句SQL(以;结尾)
+ * 
  * @author vv
  * @since 2017/10/8.
  */
 public class ParseListener extends SQLiteBaseListener {
 
-
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseListener.class);
+
+    private Command result;
 
     private SelectClause sc;
 
     private Stack<Expression> exprStack = new Stack<>();
 
-    public SelectCommand getResult() {
-        SelectCommand cmd = new SelectCommand(sc);
-        return cmd;
+    public Command getResult() {
+        return result;
     }
 
     private void printStack() {
@@ -42,6 +46,11 @@ public class ParseListener extends SQLiteBaseListener {
             sb.append(e).append("|");
         }
         LOGGER.trace(sb.toString());
+    }
+
+    @Override
+    public void exitQuit_stmt(SQLiteParser.Quit_stmtContext ctx) {
+        result = new ExitCommand();
     }
 
     /**
@@ -98,9 +107,9 @@ public class ParseListener extends SQLiteBaseListener {
             cmpType = CompareOperator.Type.GREATER_THAN;
         } else if (ctx.GT_EQ() != null) {
             cmpType = CompareOperator.Type.GREATER_OR_EQUAL;
-        } else if(ctx.LT() != null){
+        } else if (ctx.LT() != null) {
             cmpType = CompareOperator.Type.LESS_THAN;
-        } else if(ctx.LT_EQ() != null){
+        } else if (ctx.LT_EQ() != null) {
             cmpType = CompareOperator.Type.LESS_OR_EQUAL;
         }
 
@@ -135,7 +144,6 @@ public class ParseListener extends SQLiteBaseListener {
             exprStack.push(boolExpr);
             printStack();
         }
-
 
     }
 
@@ -216,6 +224,9 @@ public class ParseListener extends SQLiteBaseListener {
             BigDecimal val = (BigDecimal) limit.evaluate(null);
             sc.setLimit(val.intValue());
         }
+
+        // 退出时将此SELECT SQL转换为命令存放在结果中
+        result = new SelectCommand(sc);
 
     }
 

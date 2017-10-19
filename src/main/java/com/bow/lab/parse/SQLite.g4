@@ -31,7 +31,7 @@
 grammar SQLite;
 
 parse
- : ( sql_stmt_list | error )* EOF
+ : ( quit_stmt | sql_stmt_list | error )* EOF
  ;
 
 error
@@ -39,6 +39,10 @@ error
    {
      throw new RuntimeException("UNEXPECTED_CHAR=" + $UNEXPECTED_CHAR.text);
    }
+ ;
+
+quit_stmt
+ : ';'* (EXIT | QUIT | BYE) ';'*
  ;
 
 sql_stmt_list
@@ -722,6 +726,10 @@ GT_EQ : '>=';
 EQ : '==';
 NOT_EQ1 : '!=';
 NOT_EQ2 : '<>';
+
+EXIT : E X I T;
+BYE : B Y E;
+QUIT : Q U I T;
 
 // http://www.sqlite.org/lang_keywords.html
 K_ABORT : A B O R T;
