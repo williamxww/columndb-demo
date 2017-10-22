@@ -21,7 +21,7 @@ import edu.caltech.nanodb.transactions.TransactionManager;
 
 
 /**
- *
+ * 存储级别的操作，如创建表文件，加载数据页。
  *
  * @todo This class requires synchronization, once we support multiple clients.
  */
@@ -296,6 +296,12 @@ public class StorageManager {
     }
 
 
+    /**
+     * 打开指定文件
+     * @param filename 文件名，如xxx.tbl
+     * @return 文件对象
+     * @throws IOException 当指定文件不存在的时候会抛出错误
+     */
     public DBFile openDBFile(String filename) throws IOException {
         DBFile dbFile = bufferManager.getFile(filename);
         if (dbFile == null) {
@@ -500,13 +506,12 @@ public class StorageManager {
             pageSize = DBFile.MAX_PAGESIZE;
         }
 
-        TableManager tblManager = getTableManager(type);
-
+        // 创建存储文件，此处只会写入 dbFileType和pageSize
         DBFile dbFile = fileManager.createDBFile(tblFileName, type, pageSize);
         logger.debug("Created new DBFile for table " + tableName + " at path " + dbFile.getDataFile());
 
         tblFileInfo.setDBFile(dbFile);
-        // If we have a column store, we need to create a lot more DBFiles for the table.
+        // 列式数据库还需要为每列创建一个文件
         if (type == DBFileType.COLUMNSTORE_DATA_FILE) {
             // 列式存储，每个列形成一个文件
             TableSchema schema = tblFileInfo.getSchema();
@@ -515,15 +520,16 @@ public class StorageManager {
                         schema.getColumnInfo(i).getColumnName().toString() + ".tbl", type, pageSize);
                 logger.debug("Created new DBFile for table " + tableName + " column "
                         + schema.getColumnInfo(i).getColumnName() + " at path " + dbFile.getDataFile());
-
                 tblFileInfo.addDBFile(dbFile);
             }
         }
 
         // Cache this table since it's now considered "open".
         openTables.put(tblFileInfo.getTableName(), tblFileInfo);
-        tblFileInfo.setTableManager(tblManager);
 
+        // 用tableManager初始化数据文件
+        TableManager tblManager = getTableManager(type);
+        tblFileInfo.setTableManager(tblManager);
         tblManager.initTableInfo(tblFileInfo);
     }
 

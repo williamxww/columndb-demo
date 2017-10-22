@@ -71,6 +71,10 @@ public class PageWriter extends PageReader
     }
 
 
+    /**
+     * 在写字符串前先写length然后再value<br/>
+     * @param value 待写入的字符串
+     */
     public void writeVarString255(String value) {
         dbPage.writeVarString255(position, value);
         position += 1 + value.length();

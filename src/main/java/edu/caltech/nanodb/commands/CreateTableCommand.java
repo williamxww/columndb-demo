@@ -7,17 +7,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-import edu.caltech.nanodb.indexes.IndexInfo;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.indexes.IndexFileInfo;
-
+import edu.caltech.nanodb.indexes.IndexInfo;
 import edu.caltech.nanodb.relations.ColumnInfo;
 import edu.caltech.nanodb.relations.ForeignKeyColumnIndexes;
 import edu.caltech.nanodb.relations.KeyColumnIndexes;
 import edu.caltech.nanodb.relations.TableConstraintType;
 import edu.caltech.nanodb.relations.TableSchema;
-
 import edu.caltech.nanodb.storage.DBFileType;
 import edu.caltech.nanodb.storage.StorageManager;
 import edu.caltech.nanodb.storage.TableFileInfo;
@@ -27,7 +25,6 @@ import edu.caltech.nanodb.storage.TableFileInfo;
  */
 public class CreateTableCommand extends Command {
 
-    /** A logging object for reporting anything interesting that happens. */
     private static Logger logger = Logger.getLogger(CreateTableCommand.class);
 
     /** Name of the table to be created. */
@@ -48,6 +45,7 @@ public class CreateTableCommand extends Command {
     /** List of constraints for the new table. */
     private List<ConstraintDecl> constraints = new ArrayList<ConstraintDecl>();
 
+    private String engine = "nano";
     /**
      * Useful for subclassing.
      */
@@ -108,17 +106,16 @@ public class CreateTableCommand extends Command {
         getConstraints().add(con);
     }
 
+    @Override
     public void execute() throws ExecutionException {
         StorageManager storageManager = StorageManager.getInstance();
 
-        // See if the table already exists.
         if (ifNotExists) {
+            // 如果表已经存在就不再创建
             logger.debug("Checking if table " + getTableName() + " already exists.");
 
             try {
                 storageManager.openTable(getTableName());
-
-                // If we got here then the table exists. Skip the operation.
                 out.printf("Table %s already exists; skipping create-table.%n", getTableName());
                 return;
             } catch (FileNotFoundException e) {
@@ -130,11 +127,15 @@ public class CreateTableCommand extends Command {
             }
         }
 
-        // Set up the table-file info based on the command details.
 
+        // 初始化tableFileInfo
         logger.debug("Creating a TableFileInfo object describing the new table " + getTableName() + ".");
         TableFileInfo tblFileInfo = new TableFileInfo(getTableName());
-        tblFileInfo.setFileType(DBFileType.HEAP_DATA_FILE);
+        if("columnStore".equalsIgnoreCase(engine)){
+            tblFileInfo.setFileType(DBFileType.COLUMNSTORE_DATA_FILE);
+        }else{
+            tblFileInfo.setFileType(DBFileType.HEAP_DATA_FILE);
+        }
 
         // 将column info添加到schema中
         TableSchema schema = tblFileInfo.getSchema();
@@ -146,8 +147,7 @@ public class CreateTableCommand extends Command {
             }
         }
 
-        // Open all tables referenced by foreign-key constraints, so that we can
-        // verify the constraints.
+        // Open all tables referenced by foreign-key constraints, so that we can verify the constraints.
         HashMap<String, TableSchema> referencedTables = new HashMap<String, TableSchema>();
         for (ConstraintDecl cd : getConstraints()) {
             if (cd.getType() == TableConstraintType.FOREIGN_KEY) {
@@ -170,7 +170,7 @@ public class CreateTableCommand extends Command {
             throw new ExecutionException("Couldn't initialize all constraints on table " + getTableName(), e);
         }
 
-        // Get the table manager and create the table.
+        // 创建存储文件并初始化这些文件
         logger.debug("Creating the new table " + getTableName() + " on disk.");
         try {
             storageManager.createTable(tblFileInfo);
@@ -179,7 +179,6 @@ public class CreateTableCommand extends Command {
                     "Could not create table \"" + getTableName() + "\".  See nested exception for details.", ioe);
         }
         logger.debug("New table " + getTableName() + " is created!");
-
         out.println("Created table:  " + getTableName());
     }
 
@@ -321,5 +320,13 @@ public class CreateTableCommand extends Command {
     /** Sets the constraints. Used for subclass access. **/
     public void setConstraints(List<ConstraintDecl> constraints) {
         this.constraints = constraints;
+    }
+
+    public String getEngine() {
+        return engine;
+    }
+
+    public void setEngine(String engine) {
+        this.engine = engine;
     }
 }

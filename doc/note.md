@@ -163,23 +163,73 @@ redo:修改后的数据
 
 
 
+#### 列式数据库结构
+
+CSHeaderPage
+
+```
+// 存储整体结构数据
+|    1B  |       1B     |   4B    |    4B    |  1B      |
+|FileType|encodePageSize|   -1    |schemaSize|numColumns|
+// 存储列信息
+|  1B  |   1B     |  XB   |  1B  |   1B     |  XB   |...
+|TypeID|colNameLen|colName|TypeID|colNameLen|colName|...
+// 存储约束
+|  1B          |  1B          |  1B          |  1B   |  1B    |
+|numConstraints|ConstraintType|ConstraintName|keySize|ColIndex|
+// 存储表统计信息
+|NumDataPages|NumTuples|AvgTupleSize|
+// 列统计信息
+|nullMask|numUnique|numNull|colType|minVal|colType|maxVal|
+```
+
+#### UncompressedPage
+
+文件压缩方式: 对于UncompressedPage，采用的是无压缩
+
+count:每增加一条记录,count++
+
+NEXT_BLOCK_OFFSET:下次写的位置
+
+```
+// 存储整体结构数据
+|    1B  |       1B     |   4B      |  4B  |        4B       |
+|FileType|encodePageSize|文件压缩方式|count |NEXT_BLOCK_OFFSET|
+
+| 1B  |    4B     |  1B  |    4B     |
+| 数据 | 数据偏移量  | 数据 | 数据偏移量  |
+
+```
+
+
+
 
 
 ### 创建列式数据库
 
 ```sql
-CREATE COLSTORE vv FROM  vv.txt (
+CREATE COLSTORE states FROM  vv.txt (
   id   INTEGER,
   name VARCHAR(30)
 );
-select * from vv;
-select name from vv;
-select * from vv where id > 3 limit 2,1;
-select count(1) from vv;
+select name from states;
+select name from states where id > 3 limit 2 offset 1;
+select count(1) from states;
 select concat(name, '1') from vv;
-INSERT INTO vv VALUES (3, 'a');
-INSERT INTO vv VALUES (4, 'b');
-INSERT INTO vv VALUES (5, 'c');
+INSERT INTO states VALUES (1, 'a');
+INSERT INTO states VALUES (2, 'b');
+INSERT INTO states VALUES (3, 'c');
+
+-- 之后改造成
+CREATE TABLE states (
+  id   INTEGER,
+  name VARCHAR(30)
+) engine=columnstore;
+
+LOAD DATA INFILE 'states.txt'
+INTO TABLE states
+CHARACTER SET utf8
+FIELDS TERMINATED BY ',';
 ```
 
 
@@ -468,4 +518,4 @@ CMD>
 
 
 
-
+p4

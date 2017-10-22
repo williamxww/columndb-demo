@@ -71,42 +71,31 @@ public class ColStoreTableManager implements TableManager {
         logger.info(String.format(
             "Initializing new column store %s with %d columns, stored at %s",
             tableName, schema.numColumns(), dbFile));
-        
-        DBPage dbPage = storageManager.loadDBPage(dbFile, 0);
-        
-        CSHeaderPage.initNewPage(dbPage);
-        
-        PageWriter hpWriter = new PageWriter(dbPage);
+
+        // 初始化主文件的首页
+        DBPage firstPage = storageManager.loadDBPage(dbFile, 0);
+        CSHeaderPage.initNewPage(firstPage);
+        PageWriter hpWriter = new PageWriter(firstPage);
         hpWriter.setPosition(CSHeaderPage.SCHEMA_START_OFFSET);
         
         // Write out the schema details now.
         logger.info("Writing table schema:  " + schema);
 
-        // Column details:
+        // 总列数
         hpWriter.writeByte(schema.numColumns());
         for (ColumnInfo colInfo : schema.getColumnInfos()) {
-
             ColumnType colType = colInfo.getType();
-
-            // Each column description consists of a type specification, a set
-            // of flags (1 byte), and a string specifying the column's name.
-
-            // Write the SQL data type and any associated details.
-
+			// 写入每列的类型
             hpWriter.writeByte(colType.getBaseType().getTypeID());
-
-            // If this data type requires additional details, write that as well.
             if (colType.hasLength()) {
-                // CHAR and VARCHAR fields have a 2 byte length value after the type.
+                // CHAR and VARCHAR 需要用两个byte写VARCHAR的长度如VARCHAR(20)中的20
                 hpWriter.writeShort(colType.getLength());
             }
-
-            // Write the column name.
+            // 写列名称(写字符串前会先写了字符串长度)
             hpWriter.writeVarString255(colInfo.getName());
         }
 
         // Write all details of key constraints, foreign keys, and indexes:
-
         int numConstraints = schema.numCandidateKeys() + schema.numForeignKeys();
         KeyColumnIndexes pk = schema.getPrimaryKey();
         if (pk != null)
@@ -129,9 +118,9 @@ public class ColStoreTableManager implements TableManager {
             (hpWriter.getPosition() - constraintStartIndex) +
             " bytes in the schema");
         
-        // Compute and store the schema's size.
-        int schemaSize = hpWriter.getPosition() - CSHeaderPage.SCHEMA_START_OFFSET;
-        CSHeaderPage.setSchemaSize(dbPage, schemaSize);
+        // 计算 schema's size.(注意position始终指向下一个byte上了)
+        int schemaSize = (hpWriter.getPosition()-1) - CSHeaderPage.SCHEMA_START_OFFSET;
+        CSHeaderPage.setSchemaSize(firstPage, schemaSize);
         
         // Report how much space was used by schema info.  (It's the current
         // position minus 4 bytes, since the first 2 bytes are file-type and
@@ -580,37 +569,39 @@ public class ColStoreTableManager implements TableManager {
 		DictionaryPage.writeDictionary(dbPage, dict, bitsize, blockNum, info);
 	}
 
-	/** Write the non encoded data to disk. */
-	private void writeUncompressed(DBFile file, FileAnalyzer analyzer, int index,
-			ColumnInfo info) throws IOException, InterruptedException {
-		
-		DBPage dbPage = storageManager.loadDBPage(file, 0);
-		UncompressedPage.initNewPage(dbPage);
-		
-		int count = 0;
-		
-		String object = analyzer.getNextObject(index);
-		
-		while (object != null) {
-		
-//			logger.debug("Entry: " + object);
-			
-			if (UncompressedPage.writeBlock(dbPage, object, count, info.getType())) {
-				logger.debug("Written to file: " + object);
-			}
-			else
-			{
-				dbPage = storageManager.loadDBPage(file, dbPage.getPageNo() + 1, true);
-				UncompressedPage.initNewPage(dbPage);
-				UncompressedPage.writeBlock(dbPage, object, count, info.getType());
-				logger.debug("New page loaded!");
-			}
-			
-			count++;
-			object = analyzer.getNextObject(index);
-		}
-		
-	}
+    /**
+     * 将数据通过非压缩方式写入到文件中
+     * @param file 数据文件
+     * @param analyzer 数据内容
+     * @param index 数据偏移量 like rowId
+     * @param info 列信息
+     * @throws IOException e
+     * @throws InterruptedException e
+     */
+    private void writeUncompressed(DBFile file, FileAnalyzer analyzer, int index, ColumnInfo info)
+            throws IOException, InterruptedException {
+
+        DBPage dbPage = storageManager.loadDBPage(file, 0);
+        UncompressedPage.initNewPage(dbPage);
+
+        int rowId = 0;
+        String object = analyzer.getNextObject(index);
+        while (object != null) {
+            if (UncompressedPage.writeBlock(dbPage, object, rowId, info.getType())) {
+                logger.debug("Written to file: " + object);
+            } else {
+                // 当前页空间不够时
+                dbPage = storageManager.loadDBPage(file, dbPage.getPageNo() + 1, true);
+                UncompressedPage.initNewPage(dbPage);
+                UncompressedPage.writeBlock(dbPage, object, rowId, info.getType());
+                logger.debug("New page loaded!");
+            }
+
+            rowId++;
+            object = analyzer.getNextObject(index);
+        }
+
+    }
 
 	/** Write the RLE data to disk. */
 	private void writeRLE(DBFile file, FileAnalyzer analyzer, int index, 

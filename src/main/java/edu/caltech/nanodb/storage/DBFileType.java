@@ -39,10 +39,9 @@ public enum DBFileType {
     
     
     /**
-     * Represents a column store data file, which contains data from a column
-     * of a table in a space efficient manner.
+     * 列式存储的文件类型
      */
-    COLUMNSTORE_DATA_FILE(30);
+    COLUMNSTORE_DATA_FILE(0x1F);
 
 
     private int id;

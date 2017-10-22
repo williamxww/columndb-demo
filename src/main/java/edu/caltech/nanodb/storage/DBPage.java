@@ -679,6 +679,7 @@ public class DBPage {
     }
 
     /**
+     * 在写字符串前先写length然后再value<br/>
      * This method stores a variable-length string whose maximum length is
      * 255 bytes.  The string is expected to be in US-ASCII encoding, so
      * multibyte characters are not supported.

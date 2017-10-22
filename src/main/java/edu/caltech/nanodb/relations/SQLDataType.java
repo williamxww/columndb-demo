@@ -32,7 +32,7 @@ public enum SQLDataType {
      * A 4-byte signed integer, designated in SQL as <tt>INTEGER</tt>.  It
      * corresponds to the Java <code>int</code> data-type.
      */
-    INTEGER((byte) 1),
+    INTEGER((byte) 0x01),
 
     /**
      * A 2-byte signed integer, designated in SQL as <tt>SMALLINT</tt>.  It
@@ -83,7 +83,7 @@ public enum SQLDataType {
     CHAR((byte) 21),
 
     /** A variable-length character-sequence, with a specified maximum length. */
-    VARCHAR((byte) 22),
+    VARCHAR((byte) 0x16),
 
     /** A large character-sequence, with a very large maximum length. */
     TEXT((byte) 23),

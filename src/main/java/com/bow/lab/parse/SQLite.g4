@@ -121,7 +121,7 @@ create_index_stmt
 create_table_stmt
  : K_CREATE ( K_TEMP | K_TEMPORARY )? K_TABLE ( K_IF K_NOT K_EXISTS )?
    ( database_name '.' )? table_name
-   ( '(' column_def ( ',' column_def )*? ( ',' table_constraint )* ')' ( K_WITHOUT IDENTIFIER )?
+   ( '(' column_def ( ',' column_def )*? ( ',' table_constraint )* ')' ( K_ENGINE '=' expr )? ( K_WITHOUT IDENTIFIER )?
    | K_AS select_stmt
    )
  ;
@@ -856,6 +856,7 @@ K_WHEN : W H E N;
 K_WHERE : W H E R E;
 K_WITH : W I T H;
 K_WITHOUT : W I T H O U T;
+K_ENGINE : E N G I N E;
 
 IDENTIFIER
  : '"' (~'"' | '""')* '"'

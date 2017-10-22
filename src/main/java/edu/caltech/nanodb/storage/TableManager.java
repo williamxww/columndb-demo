@@ -9,6 +9,7 @@ import edu.caltech.nanodb.relations.Tuple;
 
 
 /**
+ * 数据级别的相关操作，如增删改查相关数据。TableManager负责每个文件的内部数据的存储结构，如对String先存length然后再value
  * This interface specifies all operations that must be implemented to support
  * a particular kind of table file.
  */
