@@ -451,26 +451,24 @@ public class ColStoreTableManager implements TableManager {
 		return null;
 	}
 
-	public void writeTable(FileAnalyzer analyzer, TableFileInfo tblFileInfo) 
-			throws IOException, InterruptedException {
-		for (int i = 0; i < tblFileInfo.getSchema().numColumns(); i++)
-		{
-			// Get the column's DBFile and ColInfo
-			DBFile dbFile = tblFileInfo.getDBFile(i + 1);
-			ColumnInfo colInfo = tblFileInfo.getSchema().getColumnInfo(i);
-			switch (analyzer.getEncoding(i)) {
-			case RLE:
-				writeRLE(dbFile, analyzer, i, colInfo);
-				break;
-			case DICTIONARY:
-				writeDictionary(dbFile, analyzer, i, colInfo);
-				break;
-			case NONE:
-				writeUncompressed(dbFile, analyzer, i, colInfo);
-				break;
-			}
-		}
-	}
+    public void writeTable(FileAnalyzer analyzer, TableFileInfo tblFileInfo) throws IOException, InterruptedException {
+        for (int i = 0; i < tblFileInfo.getSchema().numColumns(); i++) {
+            // Get the column's DBFile and ColInfo
+            DBFile dbFile = tblFileInfo.getDBFile(i + 1);
+            ColumnInfo colInfo = tblFileInfo.getSchema().getColumnInfo(i);
+            switch (analyzer.getEncoding(i)) {
+            case RLE:
+                writeRLE(dbFile, analyzer, i, colInfo);
+                break;
+            case DICTIONARY:
+                writeDictionary(dbFile, analyzer, i, colInfo);
+                break;
+            case NONE:
+                writeUncompressed(dbFile, analyzer, i, colInfo);
+                break;
+            }
+        }
+    }
 	
 	public void printTable(TableFileInfo tblFileInfo) throws IOException {
 		BlockColumnStoreReader reader = new BlockColumnStoreReader();

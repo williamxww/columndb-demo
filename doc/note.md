@@ -97,7 +97,7 @@ headPage
 
 第二页(pageNo:1)
 
-DataPage   开始2字节表示总slot数 ，后面每个slot占用一个short
+DataPage开始2字节表示总slot数 ，后面每个slot占用一个short
 
 numSlots:总槽位数
 
@@ -196,9 +196,8 @@ NEXT_BLOCK_OFFSET:下次写的位置
 |    1B  |       1B     |   4B      |  4B  |        4B       |
 |FileType|encodePageSize|文件压缩方式|count |NEXT_BLOCK_OFFSET|
 
-| 1B  |    4B     |  1B  |    4B     |
+| 1B   |    4B      |  1B  |    4B     |
 | 数据 | 数据偏移量  | 数据 | 数据偏移量  |
-
 ```
 
 
