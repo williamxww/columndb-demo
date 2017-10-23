@@ -247,45 +247,35 @@ public class SelectClause {
      */
     public Schema computeSchema() throws IOException, SchemaNameException {
 
-        // This object holds the schema that expressions in the select-clause
-        // will be evaluated against.
+        // selectSchema持有所有列信息
         Schema selectSchema = new Schema();
-
-        // Compute the schema of the FROM clause first.
+        // 通过fromClause可以获取到完整的schema
         if (fromClause != null) {
             Schema fromSchema = fromClause.prepare();
             logger.debug("From-clause schema:  " + fromSchema);
-
             selectSchema.append(fromSchema);
         }
 
-        // Make sure that all expressions in this SELECT clause reference
-        // known and non-ambiguous names from the FROM clause.
-
-        // SELECT values:  SELECT a, b + c, tbl.* ...
+        // 确保所有的列都是存在的，并且是清晰指定的
+        // SELECT values: SELECT a, b + c, tbl.* ...
         Schema selectResultsSchema = new Schema();
         for (SelectValue selVal : selectValues) {
             if (selVal.isWildcard()) {
-                // Make sure that if a table name is specified, that the table
-                // name is in the SELECT clause's schema.
+                // 在使用 a.*时 必须指定表名
                 ColumnName colName = selVal.getWildcard();
                 if (colName.isTableSpecified()) {
                     if (!selectSchema.getTableNames().contains(colName.getTableName())) {
-                        throw new SchemaNameException("SELECT-value " + colName +
-                            " specifies an unrecognized table name.");
+                        throw new SchemaNameException(
+                                "SELECT-value " + colName + " specifies an unrecognized table name.");
                     }
                 }
-            }
-            else {
-                // Not a wildcard.  Get the list of column-values, and resolve
-                // each one.
+            } else {
+                // 确保这些查询列都是OK的(在表中是存在的)
                 Expression expr = selVal.getExpression();
                 resolveExpressionRefs("SELECT-value", expr, selectSchema);
             }
-
-            // Update the result-schema with this select-value's column-info(s).
-            selectResultsSchema.append(
-                selVal.getColumnInfos(selectSchema, selectResultsSchema));
+            // 找出需要查询的列信息
+            selectResultsSchema.append(selVal.getColumnInfos(selectSchema, selectResultsSchema));
         }
 
         logger.debug("Select-results schema:  " + selectResultsSchema);
@@ -316,6 +306,7 @@ public class SelectClause {
 
 
     /**
+     * 根据Schema中的信息，校验Expression是否正确，如果有遗漏信息，帮助补充完整。
      * This helper function goes through the expression and verifies that every
      * symbol-reference corresponds to an actual value produced by the
      * <tt>FROM</tt>-clause of the <tt>SELECT</tt> expression.  Any column-names
@@ -339,7 +330,7 @@ public class SelectClause {
         throws SchemaNameException {
 
         // Get the list of column-values in the expression, and resolve each one.
-
+        // 获取此Expression中涉及到的所有ColumnName
         ArrayList<ColumnName> exprColumns = new ArrayList<ColumnName>();
         expr.getAllSymbols(exprColumns);
 
@@ -347,7 +338,7 @@ public class SelectClause {
             assert !colName.isColumnWildcard();
 
             SortedMap<Integer, ColumnInfo> found = s.findColumns(colName);
-
+            // 若colName没有指定表名称就设置表名
             if (!colName.isTableSpecified()) {
                 // Try to resolve the table name using the column name.
 

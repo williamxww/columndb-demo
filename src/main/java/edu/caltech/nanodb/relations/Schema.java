@@ -1,6 +1,5 @@
 package edu.caltech.nanodb.relations;
 
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,16 +15,15 @@ import java.util.TreeMap;
 
 import edu.caltech.nanodb.expressions.ColumnName;
 
-
 /**
  * <p>
  * A schema is an ordered collection of column names and associated types.
  * </p>
  * <p>
  * Many different entities in the database code can have schema associated with
- * them.  Both tables and tuples have schemas, for obvious reasons.
+ * them. Both tables and tuples have schemas, for obvious reasons.
  * <tt>SELECT</tt> and <tt>FROM</tt> clauses also have schemas, used by the
- * database engine to verify the semantics of database queries.  Finally,
+ * database engine to verify the semantics of database queries. Finally,
  * relational algebra plan nodes also have schemas, which specify the kinds of
  * tuples that they generate.
  * </p>
@@ -33,24 +31,22 @@ import edu.caltech.nanodb.expressions.ColumnName;
 public class Schema implements Serializable, Iterable<ColumnInfo> {
 
     /**
-     * This helper class is used for the internal hashed column structure, so
-     * that we can do fast lookups based on table names and column names.
+     * 为了方便通过表名和列名能够快速定位到该列，并且还要记住此列在schema中的顺序
      */
     private static class IndexedColumnInfo implements Serializable {
-        /** The index in the schema that the column appears at. */
+        /**
+         * 第几列
+         */
         public int colIndex;
 
-        /** The details of the column at the stored index. */
         public ColumnInfo colInfo;
 
-        /** Stores the specified index and column-info value. */
         public IndexedColumnInfo(int colIndex, ColumnInfo colInfo) {
             if (colInfo == null)
                 throw new NullPointerException("colInfo cannot be null");
 
             if (colIndex < 0) {
-                throw new IllegalArgumentException("colIndex must be >= 0; got " +
-                    colIndex);
+                throw new IllegalArgumentException("colIndex must be >= 0; got " + colIndex);
             }
 
             this.colIndex = colIndex;
@@ -58,47 +54,42 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         }
     }
 
-
     /**
-     * The collection of the column-info objects describing the columns in the
-     * schema.
+     * all columnInfo in schema.
      */
     private ArrayList<ColumnInfo> columnInfos;
 
-
     /**
+     * Map<tableName, Map<columnName, columnInfo>><br/>
      * A mapping that provides fast lookups for columns based on table name and
-     * column name.  The outer hash-map has table names for keys; "no table" is
+     * column name. The outer hash-map has table names for keys; "no table" is
      * indicated with a <code>null</code> key, which {@link java.util.HashMap}
-     * supports.  The inner hash-map has column names for keys, and maps to
+     * supports. The inner hash-map has column names for keys, and maps to
      * column information objects.
      */
-    private HashMap<String, HashMap<String, IndexedColumnInfo>> colsHashedByTable;
-
+    private Map<String, Map<String, IndexedColumnInfo>> tableColumn2InfoMap;
 
     /**
+     * Map<columnName, ArrayList
+     * <IndexedColumnInfo>>,同一个columnName可能对应多个ColumnInfo<br/>
+     * 因为多个表连接时就会出现不同表有列名称是一样的情况<br/>
      * A mapping that provides fast lookups for columns based only on column
-     * name.  Because multiple columns could have the same column name (but
+     * name. Because multiple columns could have the same column name (but
      * different table names) in a single schema, the values in the mapping are
      * lists.
      */
-    private HashMap<String, ArrayList<IndexedColumnInfo>> colsHashedByColumn;
-
-
+    private Map<String, ArrayList<IndexedColumnInfo>> name2InfosMap;
 
     public Schema() {
         columnInfos = new ArrayList<ColumnInfo>();
-        colsHashedByTable =
-            new HashMap<String, HashMap<String, IndexedColumnInfo> >();
-        colsHashedByColumn = new HashMap<String, ArrayList<IndexedColumnInfo>>();
+        tableColumn2InfoMap = new HashMap();
+        name2InfosMap = new HashMap();
     }
-
 
     public Schema(List<ColumnInfo> colInfos) throws SchemaNameException {
         this();
         append(colInfos);
     }
-
 
     /**
      * Construct a copy of the specified schema object.
@@ -110,7 +101,6 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         append(s);
     }
 
-
     /**
      * Returns the number of columns in the schema.
      *
@@ -120,10 +110,9 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         return columnInfos.size();
     }
 
-
     /**
      * Returns the <tt>ColumnInfo</tt> object describing the column at the
-     * specified index.  Column indexes are numbered from 0.
+     * specified index. Column indexes are numbered from 0.
      *
      * @param i the index to retrieve the column-info for
      *
@@ -134,17 +123,20 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         return columnInfos.get(i);
     }
 
-
     public List<ColumnInfo> getColumnInfos() {
         return Collections.unmodifiableList(columnInfos);
     }
-
 
     public Iterator<ColumnInfo> iterator() {
         return Collections.unmodifiableList(columnInfos).iterator();
     }
 
-
+    /**
+     * 添加列
+     * 
+     * @param colInfo 列信息
+     * @return 增加列的序号
+     */
     public int addColumnInfo(ColumnInfo colInfo) {
         if (colInfo == null)
             throw new NullPointerException("colInfo cannot be null");
@@ -152,52 +144,45 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         String colName = colInfo.getName();
         String tblName = colInfo.getTableName();
 
-        // Check the hashed-columns structure to see if this column already
-        // appears in the schema.
-
-        HashMap<String, IndexedColumnInfo> colMap = colsHashedByTable.get(tblName);
+        // 表中若已有该元素，报错
+        Map<String, IndexedColumnInfo> colMap = tableColumn2InfoMap.get(tblName);
         if (colMap != null && colMap.containsKey(colName)) {
-            throw new SchemaNameException("Specified column " + colInfo +
-            " is a duplicate of an existing column.");
+            throw new SchemaNameException("Specified column " + colInfo + " is a duplicate of an existing column.");
         }
 
+        // 获取即将添加的元素index
         int colIndex = columnInfos.size();
         columnInfos.add(colInfo);
-
         IndexedColumnInfo indexedColInfo = new IndexedColumnInfo(colIndex, colInfo);
 
-        // Update the hashed-columns structures for fast/easy lookup.
-
+        // 更新两个方便查询的map
         if (colMap == null) {
             colMap = new HashMap<String, IndexedColumnInfo>();
-            colsHashedByTable.put(tblName, colMap);
+            tableColumn2InfoMap.put(tblName, colMap);
         }
         colMap.put(colName, indexedColInfo);
 
-        ArrayList<IndexedColumnInfo> colList = colsHashedByColumn.get(colName);
+        ArrayList<IndexedColumnInfo> colList = name2InfosMap.get(colName);
         if (colList == null) {
             colList = new ArrayList<IndexedColumnInfo>();
-            colsHashedByColumn.put(colName, colList);
+            name2InfosMap.put(colName, colList);
         }
         colList.add(indexedColInfo);
-
-        // Finally, return the index.
 
         return colIndex;
     }
 
-
     /**
-     * Append another schema to this schema.
+     * 将另一个Schema合并进来
      *
      * @throws SchemaNameException if any of the input column-info objects
      *         overlap the names of columns already in the schema.
      */
     public void append(Schema s) throws SchemaNameException {
-        for (ColumnInfo colInfo : s)
-             addColumnInfo(colInfo);
+        for (ColumnInfo colInfo : s) {
+            addColumnInfo(colInfo);
+        }
     }
-
 
     /**
      * Append a list of column-info objects to this schema.
@@ -207,25 +192,22 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
      *         already in the schema.
      */
     public void append(Collection<ColumnInfo> colInfos) throws SchemaNameException {
-
         for (ColumnInfo colInfo : colInfos)
             addColumnInfo(colInfo);
     }
 
-
     /**
-     * Returns a set containing all table names that appear in this schema.
-     * Note that this may include <code>null</code> if there are columns with
-     * no table name specified!
+     * Returns a set containing all table names that appear in this schema. Note
+     * that this may include <code>null</code> if there are columns with no
+     * table name specified!
      */
     public Set<String> getTableNames() {
-        return Collections.unmodifiableSet(colsHashedByTable.keySet());
+        return Collections.unmodifiableSet(tableColumn2InfoMap.keySet());
     }
-
 
     /**
      * This helper method returns the names of all tables that appear in both
-     * this schema and the specified schema.  Note that not all columns of a
+     * this schema and the specified schema. Note that not all columns of a
      * given table must be present for the table to be included in the result;
      * there just has to be at least one column from the table in both schemas
      * for it to be included in the result.
@@ -235,11 +217,10 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
      *         schemas
      */
     public Set<String> getCommonTableNames(Schema s) {
-        HashSet<String> shared = new HashSet<String>(colsHashedByTable.keySet());
+        HashSet<String> shared = new HashSet<String>(tableColumn2InfoMap.keySet());
         shared.retainAll(s.getTableNames());
         return shared;
     }
-
 
     /**
      * Returns a set containing all column names that appear in this schema.
@@ -249,63 +230,60 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
      * @return a set containing all column names that appear in this schema.
      */
     public Set<String> getColumnNames() {
-        return Collections.unmodifiableSet(colsHashedByColumn.keySet());
+        return Collections.unmodifiableSet(name2InfosMap.keySet());
     }
 
-
     /**
-     * Returns the names of columns that are common between this schema and the
-     * specified schema.  This kind of operation is mainly used for resolving
+     * 将当前schema中的列和参数中Schema的列名称合并后返回，注意会去重，主要是为了解决自然连接（不能有重复列） Returns the
+     * names of columns that are common between this schema and the specified
+     * schema. This kind of operation is mainly used for resolving
      * <tt>NATURAL</tt> joins.
      *
      * @param s the schema to compare to this schema
      * @return a set of the common column names
      */
     public Set<String> getCommonColumnNames(Schema s) {
-        HashSet<String> shared = new HashSet<String>(colsHashedByColumn.keySet());
+        HashSet<String> shared = new HashSet<String>(name2InfosMap.keySet());
         shared.retainAll(s.getColumnNames());
         return shared;
     }
 
-
     /**
-     * Returns the number of columns that have the specified column name.  Note
-     * that multiple columns can have the same column name but different table
-     * names.
+     * 指定名称colName在此schema中有多少个同样的列。 Returns the number of columns that have the
+     * specified column name. Note that multiple columns can have the same
+     * column name but different table names.
      *
      * @param colName the column name to return the count for
      * @return the number of columns with the specified column name
      */
     public int numColumnsWithName(String colName) {
-        ArrayList<IndexedColumnInfo> list = colsHashedByColumn.get(colName);
-        if (list != null)
+        ArrayList<IndexedColumnInfo> list = name2InfosMap.get(colName);
+        if (list != null) {
             return list.size();
-
+        }
         return 0;
     }
 
-
     /**
-     * This helper method returns true if this schema contains any columns with
-     * the same column name but different table names.  If so, the schema is not
-     * valid for use on one side of a <tt>NATURAL</tt> join.
+     * 自然连接是不允许有重复列(不同表的名称相同的列)的 This helper method returns true if this schema
+     * contains any columns with the same column name but different table names.
+     * If so, the schema is not valid for use on one side of a <tt>NATURAL</tt>
+     * join.
      *
      * @return true if the schema has multiple columns with the same column name
      *         but different table names, or false otherwise.
      */
     public boolean hasMultipleColumnsWithSameName() {
-        for (String cName : colsHashedByColumn.keySet()) {
-            if (colsHashedByColumn.get(cName).size() > 1)
+        for (String cName : name2InfosMap.keySet()) {
+            if (name2InfosMap.get(cName).size() > 1)
                 return true;
         }
         return false;
     }
 
-
     /**
-     * Presuming that exactly one column has the specified name, this method
-     * returns the column information for that column name.
-     *
+     * 根据列名获取列信息，如果一个colName有多个ColumnInfo会报错
+     * 
      * @param colName the name of the column to retrieve the information for
      *
      * @return the column information for the specified column
@@ -314,7 +292,7 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
      *         in this schema, or if it appears multiple times
      */
     public ColumnInfo getColumnInfo(String colName) {
-        ArrayList<IndexedColumnInfo> list = colsHashedByColumn.get(colName);
+        ArrayList<IndexedColumnInfo> list = name2InfosMap.get(colName);
         if (list == null || list.size() == 0)
             throw new SchemaNameException("No columns with name " + colName);
 
@@ -324,68 +302,54 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         return list.get(0).colInfo;
     }
 
-
     /**
+     * 将此schema中所有列的表名都换成参数指定的tableName<br/>
      * This method iterates through all columns in this schema and sets them all
-     * to be on the specified table.  This method will throw an exception if the
+     * to be on the specified table. This method will throw an exception if the
      * result would be an invalid schema with duplicate column names.
      *
      * @throws SchemaNameException if the schema contains columns with the same
-     *         column name but different table names.  In this case, resetting the
-     *         table name will produce an invalid schema with ambiguous column
-     *         names.
+     *         column name but different table names. In this case, resetting
+     *         the table name will produce an invalid schema with ambiguous
+     *         column names.
      *
      * @design (donnie) At present, this method does this by replacing each
      *         {@link edu.caltech.nanodb.relations.ColumnInfo} object with a new
-     *         object with updated information.  This is because
+     *         object with updated information. This is because
      *         <code>ColumnInfo</code> is currently immutable.
      */
     public void setTableName(String tableName) throws SchemaNameException {
-        // First, verify that overriding the table names will not produce multiple
-        // ambiguous column names.
 
-        HashSet<String> colNames = new HashSet<String>();
+        // 检查：如果一个列名有2列的情况，就报错(覆盖失败)
         ArrayList<String> duplicateNames = null;
-
-        for (Map.Entry<String, ArrayList<IndexedColumnInfo> > entry :
-             colsHashedByColumn.entrySet()) {
+        for (Map.Entry<String, ArrayList<IndexedColumnInfo>> entry : name2InfosMap.entrySet()) {
 
             if (entry.getValue().size() > 1) {
-                if (duplicateNames == null)
+                // 如果一个列名对应多个列，将此列名记录下来，做为错误信息抛出。
+                if (duplicateNames == null) {
                     duplicateNames = new ArrayList<String>();
-
+                }
                 duplicateNames.add(entry.getKey());
             }
         }
-
         if (duplicateNames != null) {
-            throw new SchemaNameException("Overriding table-name to \"" +
-                tableName + "\" would produce ambiguous columns:  " +
-                duplicateNames);
+            throw new SchemaNameException(
+                    "Overriding table-name to " + tableName + " would produce ambiguous columns:  " + duplicateNames);
         }
 
-        // If we get here, we know that we can safely override the table name for
-        // all columns.
-
+        // 将所有列的tableName替换掉
         ArrayList<ColumnInfo> oldColInfos = columnInfos;
-
+        // 将所有容器清空
         columnInfos = new ArrayList<ColumnInfo>();
-        colsHashedByTable =
-            new HashMap<String, HashMap<String, IndexedColumnInfo>>();
-        colsHashedByColumn = new HashMap<String, ArrayList<IndexedColumnInfo>>();
-
-        // Iterate over the columns in the same order as they were in originally.
-        // For each one, override the table name, then use addColumnInfo() to
-        // properly update the internal hash structure.
+        tableColumn2InfoMap = new HashMap();
+        name2InfosMap = new HashMap();
 
         for (ColumnInfo colInfo : oldColInfos) {
-            ColumnInfo newColInfo =
-                new ColumnInfo(colInfo.getName(), tableName, colInfo.getType());
-
+            ColumnInfo newColInfo = new ColumnInfo(colInfo.getName(), tableName, colInfo.getType());
+            // 添加修改后的ColumnInfo
             addColumnInfo(newColInfo);
         }
     }
-
 
     public int getColumnIndex(ColumnName colName) {
         if (colName.isColumnWildcard())
@@ -394,62 +358,47 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         return getColumnIndex(colName.getTableName(), colName.getColumnName());
     }
 
-
     public int getColumnIndex(ColumnInfo colInfo) {
         return getColumnIndex(colInfo.getTableName(), colInfo.getName());
     }
-
 
     public int getColumnIndex(String colName) {
         return getColumnIndex(null, colName);
     }
 
-
+    /**
+     * 根据列明获取列序号
+     * 
+     * @param tblName 表名，只要此schema中不存在重复列明，不指定tblName也行
+     * @param colName 列名
+     * @return 列顺序号
+     */
     public int getColumnIndex(String tblName, String colName) {
-        ArrayList<IndexedColumnInfo> colList = colsHashedByColumn.get(colName);
-
+        ArrayList<IndexedColumnInfo> colList = name2InfosMap.get(colName);
         if (colList == null)
             return -1;
 
         if (tblName == null) {
             if (colList.size() > 1) {
-                throw new SchemaNameException("Column name \"" + colName +
-                    "\" is ambiguous in this schema.");
+                throw new SchemaNameException("Column name \"" + colName + "\" is ambiguous in this schema.");
             }
-
             return colList.get(0).colIndex;
-        }
-        else {
-            // Table-name is specified.
-
+        } else {
+            // 指定了表名
             for (IndexedColumnInfo c : colList) {
-                if (tblName.equals(c.colInfo.getTableName()))
+                if (tblName.equals(c.colInfo.getTableName())) {
                     return c.colIndex;
+                }
             }
         }
-
         return -1;
     }
 
-
     /**
-     * Given a (possibly wildcard) column-name, this method returns the collection
-     * of all columns that match the specified column name.  The collection is a
-     * mapping from integer indexes (the keys) to <code>ColumnInfo</code> objects
-     * from the schema.
-     * <p>
-     * Any valid column-name object will work, so all of these options are
-     * available:
-     * <ul>
-     *   <li><b>No table, only a column name</b> - to resolve an unqualified
-     *     column name, e.g. in an expression or predicate</li>
-     *   <li><b>A table and column name</b> - to check whether the schema contains
-     *     such a column</li>
-     *   <li><b>A wildcard without a table name</b> - to retrieve all columns in
-     *     the schema</li>
-     *   <li><b>A wildcard with a table name</b> - to retrieve all columns
-     *     associated with a particular table name</li>
-     * </ul>
+     * 返回指定列明对应的列信息
+     * 
+     * @param colName 列明
+     * @return Map<index, ColumnInfo>
      */
     public SortedMap<Integer, ColumnInfo> findColumns(ColumnName colName) {
 
@@ -459,50 +408,32 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
             // Some kind of wildcard column-name object.
 
             if (!colName.isTableSpecified()) {
-                // Wildcard with no table name:  *
-                // Add all columns in the schema to the result.
-
+                // select * 将所有列返回
                 for (int i = 0; i < columnInfos.size(); i++)
                     found.put(i, columnInfos.get(i));
-            }
-            else {
-                // Wildcard with a table name:  tbl.*
-                // Find the table info and add its columns to the result.
-
-                HashMap<String, IndexedColumnInfo> tableCols =
-                    colsHashedByTable.get(colName.getTableName());
-
+            } else {
+                // select tbl.* 将此table对应的列返回
+                Map<String, IndexedColumnInfo> tableCols = tableColumn2InfoMap.get(colName.getTableName());
                 if (tableCols != null) {
-                    for (IndexedColumnInfo indexedColInfo: tableCols.values())
+                    for (IndexedColumnInfo indexedColInfo : tableCols.values())
                         found.put(indexedColInfo.colIndex, indexedColInfo.colInfo);
                 }
             }
-        }
-        else {
+        } else {
+
             // A non-wildcard column-name object.
-
             if (!colName.isTableSpecified()) {
-                // Column name with no table name:  col
-                // Look up the list of column-info objects grouped by column name.
-
-                ArrayList<IndexedColumnInfo> colList =
-                    colsHashedByColumn.get(colName.getColumnName());
-
+                // 没有指定表名，则将此colName对应的所有列返回
+                ArrayList<IndexedColumnInfo> colList = name2InfosMap.get(colName.getColumnName());
                 if (colList != null) {
                     for (IndexedColumnInfo indexedColInfo : colList)
                         found.put(indexedColInfo.colIndex, indexedColInfo.colInfo);
                 }
-            }
-            else {
-                // Column name with a table name:  tbl.col
-                // Find the table info and see if it has the specified column.
-
-                HashMap<String, IndexedColumnInfo> tableCols =
-                    colsHashedByTable.get(colName.getTableName());
-
+            } else {
+                // select tbl.col ，将指定表对应的指定列返回
+                Map<String, IndexedColumnInfo> tableCols = tableColumn2InfoMap.get(colName.getTableName());
                 if (tableCols != null) {
-                    IndexedColumnInfo indexedColInfo =
-                        tableCols.get(colName.getColumnName());
+                    IndexedColumnInfo indexedColInfo = tableCols.get(colName.getColumnName());
                     if (indexedColInfo != null)
                         found.put(indexedColInfo.colIndex, indexedColInfo.colInfo);
                 }
@@ -511,7 +442,6 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
 
         return found;
     }
-
 
     public String toString() {
         return "Schema[cols=" + columnInfos.toString() + "]";

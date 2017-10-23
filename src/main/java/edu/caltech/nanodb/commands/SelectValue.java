@@ -232,15 +232,13 @@ public class SelectValue implements Cloneable {
             // The values matching the wildcard column-name will appear in the
             // SELECT clause's output.
             results.addAll(inputSchema.findColumns(wildcardColumnName).values());
-        }
-        else if (expression != null) {
+        } else if (expression != null) {
             ColumnInfo colInfo = expression.getColumnInfo(inputSchema);
             if (resultAlias != null) {
                 // The result has an alias specified, so set the column name
                 // to be that alias.
                 colInfo = new ColumnInfo(resultAlias, colInfo.getType());
-            }
-            else if (colInfo.getName() == null) {
+            } else if (colInfo.getName() == null) {
                 // The column didn't have a name specified, so generate one
                 // that is unique in the result schema.
 
@@ -257,14 +255,10 @@ public class SelectValue implements Cloneable {
                 }
             }
             results.add(colInfo);
-        }
-        else if (scalarSubquery != null) {
-            throw new UnsupportedOperationException(
-                "Support for scalar subqueries is currently incomplete.");
-        }
-        else {
-            throw new IllegalStateException(
-                "Select-value doesn't specify any values");
+        } else if (scalarSubquery != null) {
+            throw new UnsupportedOperationException("Support for scalar subqueries is currently incomplete.");
+        } else {
+            throw new IllegalStateException("Select-value doesn't specify any values");
         }
 
         return results;
