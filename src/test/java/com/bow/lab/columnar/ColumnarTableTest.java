@@ -23,7 +23,7 @@ import java.io.IOException;
  * @author vv
  * @since 2017/10/22.
  */
-public class CreateTableTest {
+public class ColumnarTableTest {
 
     @Before
     public void setup() throws IOException {
