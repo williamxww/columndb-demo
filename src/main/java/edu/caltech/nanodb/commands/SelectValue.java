@@ -203,6 +203,7 @@ public class SelectValue implements Cloneable {
 
 
     /**
+     * 获取此select value对应的ColumnInfo<br/>
      * This function returns the column-details of all results that will be
      * produced by this select-value.  For example, if the select value is a
      * wildcard such as <tt>*</tt> or <tt>tbl.*</tt> then the referenced column
@@ -220,7 +221,7 @@ public class SelectValue implements Cloneable {
      *
      * @param resultSchema the current result schema "so far".  This is provided
      *        so that if the select-value is unnamed then a unique name can be
-     *        generated.
+     *        generated. 用来表示截止目前的schema,便于为没有名字的列生成一个名字
      *
      * @return a collection of one or more column-information objects containing
      *         the schema for this select-value.

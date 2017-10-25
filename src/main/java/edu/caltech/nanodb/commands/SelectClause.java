@@ -274,7 +274,7 @@ public class SelectClause {
                 Expression expr = selVal.getExpression();
                 resolveExpressionRefs("SELECT-value", expr, selectSchema);
             }
-            // 找出需要查询的列信息
+            // 找出selVal对应的列信息添加到selectResultsSchema
             selectResultsSchema.append(selVal.getColumnInfos(selectSchema, selectResultsSchema));
         }
 
