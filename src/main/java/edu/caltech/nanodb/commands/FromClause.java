@@ -97,6 +97,7 @@ public class FromClause {
         /**
          * Perform a natural join, which implicitly specifies that values in all
          * shared columns must be equal.
+         * 自然连接：自动根据两表中相同列进行内连接，若A表中有2个字段与B表相同，那么自动会根据这2个字段与B表进行连接。
          */
         NATURAL_JOIN,
 
@@ -114,7 +115,6 @@ public class FromClause {
     }
 
 
-    /** A logging object for reporting anything interesting that happens. */
     private static Logger logger = Logger.getLogger(FromClause.class);
 
 
@@ -151,6 +151,7 @@ public class FromClause {
 
 
     /**
+     * 两表相连时，此字段代表左表
      * If this <tt>FROM</tt> clause is a join expression then this references
      * the left child of the join.  This field will only be set to a
      * non-<code>null</code> value if {@link #clauseType}

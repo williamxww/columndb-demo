@@ -51,7 +51,6 @@ import org.apache.log4j.Logger;
  */
 public class DPJoinPlanner implements Planner {
 
-    /** A logging object for reporting anything interesting that happens. */
     private static Logger logger = Logger.getLogger(DPJoinPlanner.class);
 
 
@@ -146,24 +145,21 @@ public class DPJoinPlanner implements Planner {
 
         // We want to take a simple SELECT a, b, ... FROM A, B, ... WHERE ...
         // and turn it into a tree of plan nodes.
-
         FromClause fromClause = selClause.getFromClause();
         if (fromClause == null) {
-            throw new UnsupportedOperationException(
-                "NanoDB doesn't yet support SQL queries without a FROM clause!");
+            throw new UnsupportedOperationException("NanoDB doesn't yet support SQL queries without a FROM clause!");
         }
-        
+
         // If we have a columnstore table, we can create a separate plan for that.
         if (fromClause.isBaseTable()) {
-        	TableFileInfo tableInfo = StorageManager.getInstance().
-        		openTable(fromClause.getTableName());
-        	
-        	if (tableInfo.getFileType() == DBFileType.COLUMNSTORE_DATA_FILE) {
-        		logger.debug("Jumping to ColumnStore planner.");
-        		PlanNode plan = new CSProjectNode(selClause, tableInfo);
-        		plan.prepare();
-        		return plan;
-        	}
+            TableFileInfo tableInfo = StorageManager.getInstance().openTable(fromClause.getTableName());
+
+            if (tableInfo.getFileType() == DBFileType.COLUMNSTORE_DATA_FILE) {
+                logger.debug("Jumping to ColumnStore planner.");
+                PlanNode plan = new CSProjectNode(selClause, tableInfo);
+                plan.prepare();
+                return plan;
+            }
         }
 
         // Pull out the top-level conjuncts from the WHERE clause on the query,
@@ -177,15 +173,14 @@ public class DPJoinPlanner implements Planner {
         JoinComponent joinComp = makeJoinPlan(fromClause, whereConjuncts);
         PlanNode plan = joinComp.joinPlan;
 
-        HashSet<Expression> unusedConjuncts =
-            new HashSet<Expression>(whereConjuncts);
+        HashSet<Expression> unusedConjuncts = new HashSet<Expression>(whereConjuncts);
         unusedConjuncts.removeAll(joinComp.conjunctsUsed);
 
         Expression finalPredicate = makePredicate(unusedConjuncts);
         if (finalPredicate != null)
             plan = addPredicateToPlan(plan, finalPredicate);
 
-        // TODO:  Grouping/aggregation will go somewhere in here.
+        // TODO: Grouping/aggregation will go somewhere in here.
 
         // Depending on the SELECT clause, create a project node at the top of
         // the tree.
@@ -298,10 +293,11 @@ public class DPJoinPlanner implements Planner {
 
 
     /**
+     * 将expr添加到conjuncts，如果Expression是AND表达式就将其内部的各个term放入到conjuncts中<br/>
      * This helper method takes a predicate <tt>expr</tt> and stores all of its
-     * conjuncts into the specified collection of conjuncts.  Specifically, if
+     * conjuncts into the specified collection of conjuncts. Specifically, if
      * the predicate is a Boolean <tt>AND</tt> operation then each term will
-     * individually be added to the collection of conjuncts.  Any other kind of
+     * individually be added to the collection of conjuncts. Any other kind of
      * predicate will be stored as-is into the collection.
      *
      * @param conjuncts the collection of conjuncts to add the predicate (or its
@@ -320,14 +316,12 @@ public class DPJoinPlanner implements Planner {
             if (boolExpr.getType() == BooleanOperator.Type.AND_EXPR) {
                 for (int iTerm = 0; iTerm < boolExpr.getNumTerms(); iTerm++)
                     conjuncts.add(boolExpr.getTerm(iTerm));
-            }
-            else {
+            } else {
                 // The Boolean expression is an OR or NOT, so we can't add the
                 // terms themselves.
                 conjuncts.add(expr);
             }
-        }
-        else {
+        } else {
             // The predicate is not a Boolean expression, so just store it.
             conjuncts.add(expr);
         }
