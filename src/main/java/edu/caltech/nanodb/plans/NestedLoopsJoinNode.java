@@ -1,6 +1,5 @@
 package edu.caltech.nanodb.plans;
 
-
 import edu.caltech.nanodb.expressions.Expression;
 import edu.caltech.nanodb.expressions.OrderByExpression;
 import edu.caltech.nanodb.qeval.ColumnStats;
@@ -12,7 +11,6 @@ import edu.caltech.nanodb.relations.Tuple;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * This plan node implements a nested-loops join operation, which can support
@@ -26,21 +24,17 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
     /** Most recently retrieved tuple of the right relation. */
     private Tuple rightTuple;
 
-
     /** Set to true when we have exhausted all tuples from our subplans. */
     private boolean done;
 
-
-    public NestedLoopsJoinNode(PlanNode leftChild, PlanNode rightChild,
-                JoinType joinType, Expression predicate) {
+    public NestedLoopsJoinNode(PlanNode leftChild, PlanNode rightChild, JoinType joinType, Expression predicate) {
 
         super(leftChild, rightChild, joinType, predicate);
     }
 
-
     /**
-     * Checks if the argument is a plan node tree with the same structure, but not
-     * necesarily the same references.
+     * Checks if the argument is a plan node tree with the same structure, but
+     * not necesarily the same references.
      *
      * @param obj the object to which we are comparing
      */
@@ -50,14 +44,12 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         if (obj instanceof NestedLoopsJoinNode) {
             NestedLoopsJoinNode other = (NestedLoopsJoinNode) obj;
 
-            return predicate.equals(other.predicate) &&
-                   leftChild.equals(other.leftChild) &&
-                   rightChild.equals(other.rightChild);
+            return predicate.equals(other.predicate) && leftChild.equals(other.leftChild)
+                    && rightChild.equals(other.rightChild);
         }
 
         return false;
     }
-
 
     /** Computes the hash-code of the nested-loops plan node. */
     @Override
@@ -68,7 +60,6 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         hash = 31 * hash + rightChild.hashCode();
         return hash;
     }
-
 
     /**
      * Returns a string representing this nested-loop join's vital information.
@@ -93,7 +84,6 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         return buf.toString();
     }
 
-
     /**
      * Creates a copy of this plan node and its subtrees.
      */
@@ -110,7 +100,6 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         return node;
     }
 
-
     /**
      * Nested-loop joins can conceivably produce sorted results in situations
      * where the outer relation is ordered, but we will keep it simple and just
@@ -120,24 +109,20 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         return null;
     }
 
-
     /** True if the node supports position marking. **/
     public boolean supportsMarking() {
         return leftChild.supportsMarking() && rightChild.supportsMarking();
     }
-
 
     /** True if the node requires that its left child supports marking. */
     public boolean requiresLeftMarking() {
         return false;
     }
 
-
     /** True if the node requires that its right child supports marking. */
     public boolean requiresRightMarking() {
         return false;
     }
-
 
     @Override
     public void prepare() {
@@ -157,31 +142,28 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
 
         float selectivity = 1.0f;
         if (predicate != null) {
-            selectivity = SelectivityEstimator.estimateSelectivity(predicate,
-                schema, stats);
+            selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, stats);
         }
 
         if (leftCost != null && rightCost != null) {
             // Number of tuples in the plain cartesian product is left*right.
             // Multiplying this by the selectivity of the join condition we get
-            float numTuples = leftCost.numTuples * rightCost.numTuples *
-                selectivity;
+            float numTuples = leftCost.numTuples * rightCost.numTuples * selectivity;
 
             // Since tuple schemas are concatenated, we add the tuple sizes.
             float tupleSize = leftCost.tupleSize + rightCost.tupleSize;
 
-            // In a nested loops join, the right table must be fully read once for
-            // each row in the left table.  Thus, we have the left cost, plus the
+            // In a nested loops join, the right table must be fully read once
+            // for
+            // each row in the left table. Thus, we have the left cost, plus the
             // right cost times the number of tuples on the left.
 
             float cpuCost = leftCost.cpuCost + leftCost.numTuples * rightCost.cpuCost;
-            long numBlockIOs = leftCost.numBlockIOs +
-                (long) Math.ceil(leftCost.numTuples) * rightCost.numBlockIOs;
+            long numBlockIOs = leftCost.numBlockIOs + (long) Math.ceil(leftCost.numTuples) * rightCost.numBlockIOs;
 
             cost = new PlanCost(numTuples, tupleSize, cpuCost, numBlockIOs);
         }
     }
-
 
     public void initialize() {
         super.initialize();
@@ -190,7 +172,6 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         leftTuple = null;
         rightTuple = null;
     }
-
 
     /**
      * Returns the next joined tuple that satisfies the join condition.
@@ -203,6 +184,7 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         if (done)
             return null;
 
+        // 嵌套循环左右tuple，在满足条件的情况下，将tuple组合
         while (getTuplesToJoin()) {
             if (canJoinTuples())
                 return joinTuples(leftTuple, rightTuple);
@@ -211,7 +193,11 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         return null;
     }
 
-
+    /**
+     * A JOIN B ,嵌套循环B中的记录去匹配A的记录，
+     * @return 是否还有tuple没有循环到
+     * @throws IOException e
+     */
     private boolean getTuplesToJoin() throws IOException {
         if (leftTuple == null && !done) {
             leftTuple = leftChild.getNextTuple();
@@ -223,13 +209,13 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
 
         rightTuple = rightChild.getNextTuple();
         if (rightTuple == null) {
-            // Reached end of right relation.  Need to do two things:
-            //   * Go to next tuple in left relation.
-            //   * Restart iteration over right relation.
+            // Reached end of right relation. Need to do two things:
+            // * Go to next tuple in left relation.
+            // * Restart iteration over right relation.
 
             leftTuple = leftChild.getNextTuple();
             if (leftTuple == null) {
-                // Reached end of left relation.  All done.
+                // Reached end of left relation. All done.
                 done = true;
                 return !done;
             }
@@ -237,16 +223,20 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
             rightChild.initialize();
             rightTuple = rightChild.getNextTuple();
             if (rightTuple == null) {
-                // Right relation is empty!  All done.
+                // Right relation is empty! All done.
                 done = true;
-                // Redundant:  return !done;
+                // Redundant: return !done;
             }
         }
 
         return !done;
     }
 
-
+    /**
+     * 判断leftTuple和rightTuple是否符合谓词，如是否符合 FROM A JOIN B ON A.ID = B.ID
+     * 
+     * @return leftTuple和rightTuple是否能外联
+     */
     private boolean canJoinTuples() {
         // If the predicate was not set, we can always join them!
         if (predicate == null)
@@ -259,20 +249,17 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         return predicate.evaluatePredicate(environment);
     }
 
-
     public void markCurrentPosition() {
         leftChild.markCurrentPosition();
         rightChild.markCurrentPosition();
     }
 
-
     public void resetToLastMark() throws IllegalStateException {
         leftChild.resetToLastMark();
         rightChild.resetToLastMark();
 
-        // TODO:  Prepare to reevaluate the join operation for the tuples.
+        // TODO: Prepare to reevaluate the join operation for the tuples.
     }
-
 
     public void cleanUp() {
         leftChild.cleanUp();

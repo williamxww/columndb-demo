@@ -72,26 +72,25 @@ public class FromClause {
      * drive some of the logic in this class with this enumeration.
      */
     public enum ClauseType {
-        /** This clause is a simple table (a "base relation"). */
+        /**
+         * 基表
+         */
         BASE_TABLE,
 
         /**
-         * This clause is a derived relation specified as a named
-         * <tt>SELECT</tt> subquery.
+         * 子查询
          */
         SELECT_SUBQUERY,
 
         /**
-         * This clause is a derived relation specified as a join of two
-         * relations.
+         * 连接
          */
         JOIN_EXPR
     }
 
 
     /**
-     * For FROM clauses that contain join expressions, this enumeration
-     * specifies the kind of join-condition for each join expression.
+     * JOIN条件的类型
      */
     public enum JoinConditionType {
         /**
@@ -102,14 +101,12 @@ public class FromClause {
         NATURAL_JOIN,
 
         /**
-         * The join clause specifies a USING clause, which explicitly lists the
-         * shared columns whose values must be equal.
+         * FROM A LEFT JOIN B USING(ID)
          */
         JOIN_USING,
 
         /**
-         * The join clause specifies an ON clause with an expression that must
-         * evaluate to true.
+         * FROM A LEFT JOIN B ON A.ID = B.ID
          */
         JOIN_ON_EXPR
     }
@@ -119,8 +116,7 @@ public class FromClause {
 
 
     /**
-     * The kind of FROM clause this object represents, either a base table, a
-     * derived table (a nested SELECT), or a join expression.
+     * 语句类型：基表，子查询，连接
      */
     private ClauseType clauseType;
 

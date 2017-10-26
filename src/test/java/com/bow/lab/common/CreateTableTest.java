@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import edu.caltech.nanodb.commands.DropTableCommand;
 import edu.caltech.nanodb.commands.InsertCommand;
 import edu.caltech.nanodb.expressions.LiteralValue;
 import edu.caltech.nanodb.server.EventDispatcher;
@@ -31,7 +32,7 @@ import edu.caltech.nanodb.storage.StorageManager;
  */
 public class CreateTableTest {
 
-    private String tableName = "vv";
+    private String tableName = "TEST";
 
     @Before
     public void setup() throws IOException {
@@ -50,8 +51,8 @@ public class CreateTableTest {
         ColumnType strType = new ColumnType(SQLDataType.VARCHAR);
         ColumnType intType = new ColumnType(SQLDataType.INTEGER);
         strType.setLength(10);
-        ColumnInfo id = new ColumnInfo("id", tableName, intType);
-        ColumnInfo name = new ColumnInfo("name", tableName, strType);
+        ColumnInfo id = new ColumnInfo("ID", tableName, intType);
+        ColumnInfo name = new ColumnInfo("NAME", tableName, strType);
         command.addColumn(id);
         command.addColumn(name);
 
@@ -65,10 +66,10 @@ public class CreateTableTest {
     @Test
     public void insert()throws Exception {
         List<String> names = new ArrayList<>();
-        names.add("id");
-        names.add("name");
+        names.add("ID");
+        names.add("NAME");
         List<Expression> expressions = new ArrayList<>();
-        LiteralValue id = new LiteralValue("10");
+        LiteralValue id = new LiteralValue("1");
         LiteralValue name = new LiteralValue("g");
         expressions.add(id);
         expressions.add(name);
@@ -91,6 +92,12 @@ public class CreateTableTest {
         FromClause from = new FromClause(tableName, null);
         clause.setFromClause(from);
         SelectCommand command = new SelectCommand(clause);
+        command.execute();
+    }
+
+    @Test
+    public void drop() throws Exception {
+        DropTableCommand command = new DropTableCommand(tableName,true);
         command.execute();
     }
 }

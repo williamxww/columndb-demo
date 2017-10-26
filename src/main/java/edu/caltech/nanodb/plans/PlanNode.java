@@ -211,6 +211,7 @@ public abstract class PlanNode implements Cloneable {
 
 
     /**
+     * 生成结果的schema,预估执行消耗和相关统计。
      * This method is responsible for computing critical details about the plan
      * node, such as the schema of the results that are produced, the estimated
      * cost of evaluating the plan node (and its children), and statistics
