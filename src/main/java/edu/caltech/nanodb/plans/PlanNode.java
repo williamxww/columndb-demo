@@ -1,94 +1,95 @@
 package edu.caltech.nanodb.plans;
 
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
-
 import edu.caltech.nanodb.expressions.Environment;
 import edu.caltech.nanodb.expressions.OrderByExpression;
-
 import edu.caltech.nanodb.qeval.ColumnStats;
 import edu.caltech.nanodb.qeval.PlanCost;
-
 import edu.caltech.nanodb.relations.Schema;
 import edu.caltech.nanodb.relations.Tuple;
 
-
 /**
- * Represents a query plan node in its most abstract form.  To create actual
- * plan nodes, use the subclasses of this node.
+ * Represents a query plan node in its most abstract form. To create actual plan
+ * nodes, use the subclasses of this node.
  */
 public abstract class PlanNode implements Cloneable {
 
-    /** Node type enumeration. */
     public enum OperationType {
-        /** Relational algebra Select operator. */
+        /**
+         * Relational algebra Select operator.
+         */
         SELECT,
-   
-        /** Relational algebra Project operator. */
+
+        /**
+         * Relational algebra Project operator.
+         */
         PROJECT,
 
-        /** Relational algebra Rename operator. */
+        /**
+         * Relational algebra Rename operator.
+         */
         RENAME,
 
-        /** Relational algebra Theta Join operator. **/
+        /**
+         * Relational algebra Theta Join operator.
+         */
         THETA_JOIN,
 
-        /** Relational algebra Group By / Aggregate operator. */
+        /**
+         * Relational algebra Group By / Aggregate operator.
+         */
         GROUP_AGGREGATE,
 
-        /** Sorting operator. */
+        /**
+         * Sorting operator.
+         */
         SORT,
 
-        /** A materialize plan-node. */
+        /**
+         * A materialize plan-node.
+         */
         MATERIALIZE
     }
-
 
     /** The type of this plan node. */
     protected OperationType nodeType;
 
-
     /**
-     * The left child of this plan node.  If the plan node only has one child,
+     * The left child of this plan node. If the plan node only has one child,
      * use this field.
      */
     protected PlanNode leftChild;
 
-
     /**
      * If the plan node has two children, this field is set to the right child
-     * node.  If the plan has only one child, this field will be <tt>null</tt>.
+     * node. If the plan has only one child, this field will be <tt>null</tt>.
      */
     protected PlanNode rightChild;
 
-
     /**
-     * The schema of the results produced by this plan-node.  The schema is
+     * The schema of the results produced by this plan-node. The schema is
      * initialized by the {@link #prepare} method; before that method has been
      * called, this will be <tt>null</tt>.
      */
     protected Schema schema;
 
-
     /**
-     * The estimated cost of executing this plan and its subplans.  This cost is
+     * The estimated cost of executing this plan and its subplans. This cost is
      * computed by the {@link #prepare} method; before that method has been
      * called, this will be <tt>null</tt>.
      */
     protected PlanCost cost;
 
-
     /**
      * Statistics (possibly estimated) describing the results produced by this
-     * plan node.  These statistics are produced when the {@link #prepare}
-     * method is called; before that method has been called, this will be
-     * <tt>null</tt>.
+     * plan node. These statistics are produced when the {@link #prepare} method
+     * is called; before that method has been called, this will be <tt>null</tt>
+     * .
      * <p>
      * This collection corresponds to the {@link #schema} object; it will
      * contain the same number of columns, and the individual columns will
@@ -96,16 +97,14 @@ public abstract class PlanNode implements Cloneable {
      */
     protected ArrayList<ColumnStats> stats;
 
-
     /**
      * The environment used to evaluate expressions against tuples being
      * processed.
      */
     protected Environment environment;
 
-
     /**
-     * Constructs a PlanNode with a given operation type.  This method will be
+     * Constructs a PlanNode with a given operation type. This method will be
      * called by subclass constructors.
      *
      * @param op the operation type of the node.
@@ -119,10 +118,9 @@ public abstract class PlanNode implements Cloneable {
         nodeType = op;
     }
 
-
     /**
      * Constructs a PlanNode with a given operation type, and the specified left
-     * child-plan.  This method will be called by subclass constructors.
+     * child-plan. This method will be called by subclass constructors.
      *
      * @param op the operation type of the node.
      * @param leftChild the left subplan of this node.
@@ -139,10 +137,9 @@ public abstract class PlanNode implements Cloneable {
         this.leftChild = leftChild;
     }
 
-
     /**
      * Constructs a PlanNode with a given operation type, and the specified left
-     * child-plan.  This method will be called by subclass constructors.
+     * child-plan. This method will be called by subclass constructors.
      *
      * @param op the operation type of the node.
      * @param leftChild the left subplan of this node.
@@ -160,35 +157,32 @@ public abstract class PlanNode implements Cloneable {
         this.rightChild = rightChild;
     }
 
-
     /**
      * If the results are ordered in some way, this method returns a collection
      * of expressions specifying what columns or expressions the results are
-     * ordered by.  If the results are not ordered then this method may return
+     * ordered by. If the results are not ordered then this method may return
      * either an empty list or a <tt>null</tt> value.
      * <p>
      * When this method returns a list of ordering expressions, the order of the
-     * expressions themselves also matters.  The entire set of results will be
+     * expressions themselves also matters. The entire set of results will be
      * ordered by the first expression; rows with the same value for the first
      * expression will be ordered by the second expression; etc.
      *
-     * @return If the plan node produces ordered results, this will be a list
-     *         of objects specifying the ordering.  If the node doesn't produce
+     * @return If the plan node produces ordered results, this will be a list of
+     *         objects specifying the ordering. If the node doesn't produce
      *         ordered results then the return-value will either be an empty
      *         list or it will be <tt>null</tt>.
      */
     public abstract List<OrderByExpression> resultsOrderedBy();
 
-
     /**
      * This method reports whether this plan node supports marking a certain
-     * point in the tuple-stream so that processing can return to that point
-     * as needed.
+     * point in the tuple-stream so that processing can return to that point as
+     * needed.
      *
      * @return true if the node supports position marking, false otherwise.
      */
     public abstract boolean supportsMarking();
-
 
     /**
      * This method reports whether this plan node requires the left child to
@@ -199,7 +193,6 @@ public abstract class PlanNode implements Cloneable {
      */
     public abstract boolean requiresLeftMarking();
 
-
     /**
      * This method reports whether this plan node requires the right child to
      * support marking for proper evaluation.
@@ -209,9 +202,8 @@ public abstract class PlanNode implements Cloneable {
      */
     public abstract boolean requiresRightMarking();
 
-
     /**
-     * 生成结果的schema,预估执行消耗和相关统计。
+     * 生成结果的schema,预估执行消耗和相关统计。<br/>
      * This method is responsible for computing critical details about the plan
      * node, such as the schema of the results that are produced, the estimated
      * cost of evaluating the plan node (and its children), and statistics
@@ -219,9 +211,8 @@ public abstract class PlanNode implements Cloneable {
      */
     public abstract void prepare();
 
-
     /**
-     * Returns the schema of the results that this node produces.  Some nodes
+     * Returns the schema of the results that this node produces. Some nodes
      * such as Select will not change the input schema but others, such as
      * Project, Rename, and ThetaJoin, must change it.
      * <p>
@@ -234,9 +225,8 @@ public abstract class PlanNode implements Cloneable {
         return schema;
     }
 
-
     /**
-     * Returns the estimated cost of this plan node's operation.  The estimate
+     * Returns the estimated cost of this plan node's operation. The estimate
      * depends on which algorithm the node uses and the data it is working with.
      * <p>
      * The cost is not computed until the {@link #prepare} method is called;
@@ -249,10 +239,9 @@ public abstract class PlanNode implements Cloneable {
         return cost;
     }
 
-
     /**
      * Returns statistics (possibly estimated) describing the results that this
-     * plan node will produce.  Estimating statistics for output results is a
+     * plan node will produce. Estimating statistics for output results is a
      * very imprecise task, to say the least.
      * <p>
      * These statistics are not computed until the {@link #prepare} method is
@@ -265,39 +254,36 @@ public abstract class PlanNode implements Cloneable {
         return stats;
     }
 
-
     /**
-     * Does any initialization the node might need.  This could include
-     * resetting state variables or starting the node over from the beginning.
+     * Does any initialization the node might need. This could include resetting
+     * state variables or starting the node over from the beginning.
      */
     public void initialize() {
         if (environment == null)
             environment = new Environment();
     }
 
-
     /**
-     * Gets the next tuple that fulfills the conditions for this plan node.
-     * If the node has a child, it should call getNextTuple() on the child.
-     * If the node is a leaf, the tuple comes from some external source such
-     * as a table file, the network, etc.
+     * Gets the next tuple that fulfills the conditions for this plan node. If
+     * the node has a child, it should call getNextTuple() on the child. If the
+     * node is a leaf, the tuple comes from some external source such as a table
+     * file, the network, etc.
      *
-     * @return the next tuple to be generated by this plan, or <tt>null</tt>
-     *         if the plan has finished generating plan nodes.
+     * @return the next tuple to be generated by this plan, or <tt>null</tt> if
+     *         the plan has finished generating plan nodes.
      *
      * @throws IOException if table data cannot be read from the filesystem
      * @throws IllegalStateException if a plan node is not properly initialized
      */
-    public abstract Tuple getNextTuple()
-        throws IllegalStateException, IOException;
-
+    public abstract Tuple getNextTuple() throws IllegalStateException, IOException;
 
     /**
-     * Marks the current tuple in the tuple-stream produced by this node.  The
-     * {@link #resetToLastMark} method can be used to return to this tuple.
-     * Note that only one marker can be set in the tuple-stream at a time.
+     * Marks the current tuple in the tuple-stream produced by this node. The
+     * {@link #resetToLastMark} method can be used to return to this tuple. Note
+     * that only one marker can be set in the tuple-stream at a time.
      *
-     * @throws UnsupportedOperationException if the node does not support marking.
+     * @throws UnsupportedOperationException if the node does not support
+     *         marking.
      *
      * @throws IllegalStateException if there is no "current tuple" to mark.
      *         This will occur if {@link #getNextTuple} hasn't yet been called
@@ -307,36 +293,34 @@ public abstract class PlanNode implements Cloneable {
      */
     public abstract void markCurrentPosition();
 
-
     /**
-     * Resets the node's tuple-stream to the most recently marked position.
-     * Note that only one marker can be set in the tuple-stream at a time.
+     * Resets the node's tuple-stream to the most recently marked position. Note
+     * that only one marker can be set in the tuple-stream at a time.
      *
-     * @throws UnsupportedOperationException if the node does not support marking.
+     * @throws UnsupportedOperationException if the node does not support
+     *         marking.
      *
      * @throws IllegalStateException if {@link #markCurrentPosition} hasn't yet
      *         been called on this plan-node
      */
     public abstract void resetToLastMark();
 
-
     /**
-     * Perform any necessary clean up tasks. This should probably be called
-     * when we are done with this plan node.
+     * Perform any necessary clean up tasks. This should probably be called when
+     * we are done with this plan node.
      */
     public abstract void cleanUp();
-
 
     /**
      * Reports this node and its vital parameters as a string.
      *
      * @return the node in string format.
      *
-     * @design We re-declare this here to force its implementation in subclasses.
+     * @design We re-declare this here to force its implementation in
+     *         subclasses.
      */
     @Override
     public abstract String toString();
-
 
     /**
      * Prints the entire plan subtree starting at this node.
@@ -366,7 +350,6 @@ public abstract class PlanNode implements Cloneable {
             rightChild.printNodeTree(out, includeCosts, indent + "    ");
     }
 
-  
     /**
      * Prints the entire node tree with indentation to the specified output
      * stream starting from indentation level 0.
@@ -379,10 +362,9 @@ public abstract class PlanNode implements Cloneable {
         printNodeTree(out, includeCosts, "");
     }
 
-
     /**
      * Prints the entire node tree with indentation to the specified output
-     * stream starting from indentation level 0.  Costs are not included in the
+     * stream starting from indentation level 0. Costs are not included in the
      * output.
      *
      * @param out the output stream.
@@ -391,7 +373,6 @@ public abstract class PlanNode implements Cloneable {
         printNodeTree(out, false);
     }
 
-    
     /**
      * Generates the same result as {@link #printNodeTree(PrintStream)}, but
      * into a string instead of to an output stream.
@@ -402,8 +383,7 @@ public abstract class PlanNode implements Cloneable {
      *
      * @return A string containing the indented printout of the plan.
      */
-    public static String printNodeTreeToString(PlanNode plan,
-                                               boolean includeCosts) {
+    public static String printNodeTreeToString(PlanNode plan, boolean includeCosts) {
 
         // The character-encoding "US-ASCII" is defined to be supported
         // on all Java implementations, so this should never throw.
@@ -414,12 +394,10 @@ public abstract class PlanNode implements Cloneable {
             ps.flush();
 
             return baos.toString("US-ASCII");
-        }
-        catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
     }
-
 
     /**
      * Generates the same result as {@link #printNodeTree(PrintStream)}, but
@@ -433,41 +411,39 @@ public abstract class PlanNode implements Cloneable {
         return printNodeTreeToString(plan, false);
     }
 
-
     /**
-     * Checks if the argument is a plan node tree with the same structure,
-     * but not necesarily the same references.
-     *   
+     * Checks if the argument is a plan node tree with the same structure, but
+     * not necesarily the same references.
+     * 
      * @param obj the object to which we are comparing
      *
-     * @design We re-declare this here to force its implementation in subclasses.
+     * @design We re-declare this here to force its implementation in
+     *         subclasses.
      */
     @Override
     public abstract boolean equals(Object obj);
 
-
     /**
      * Computes the hash-code of a plan-node, including any sub-plans of this
-     * plan.  This method is used to see if two plan nodes (or subtrees)
+     * plan. This method is used to see if two plan nodes (or subtrees)
      * <em>might be</em> equal.
      *
      * @return the hash code for the plan node and any subnodes it may contain.
      */
     @Override
     public abstract int hashCode();
-  
-  
+
     /**
-     * Creates a copy of this plan node and its subtree.  Note that this method
+     * Creates a copy of this plan node and its subtree. Note that this method
      * is only used internally, because plan nodes also reference their parent
      * node, and it is not possible for this method to set that parent-reference
-     * properly.  To create a deep copy of an entire plan tree, the
+     * properly. To create a deep copy of an entire plan tree, the
      * {@link #duplicate} method should be used.
      */
     @Override
     protected PlanNode clone() throws CloneNotSupportedException {
-        PlanNode node = (PlanNode)super.clone();
-        
+        PlanNode node = (PlanNode) super.clone();
+
         // NodeType is immutable.
         node.nodeType = this.nodeType;
 
@@ -479,34 +455,18 @@ public abstract class PlanNode implements Cloneable {
             node.leftChild = this.leftChild.clone();
         else
             node.leftChild = null;
-        
+
         if (this.rightChild != null)
             node.rightChild = this.rightChild.clone();
         else
             node.rightChild = null;
-        
-        // PARENT CANNOT BE COPIED, SET TO NULL AND NOTE THAT WE NEED TO 
+
+        // PARENT CANNOT BE COPIED, SET TO NULL AND NOTE THAT WE NEED TO
         // RUN THROUGH THE TREE AT THE END TO SET THE PARENT!
 
         return node;
     }
 
-
-    /**
-     * Iterates through the tree and sets node parents to correct references.
-     * This method should be called after cloning an entire tree because cloning
-     * cannot correctly clone parent references.
-     **/
-    private void setNodeParents() {
-        if (leftChild != null) {
-            leftChild.setNodeParents();
-        }
-        if (rightChild != null) {
-            rightChild.setNodeParents();
-        }
-    }
-  
-  
     /**
      * Returns a deep copy of this plan tree.
      *
@@ -520,11 +480,24 @@ public abstract class PlanNode implements Cloneable {
             // We have successfully cloned the node tree.
             // Set the top node's parent to null and set all the other parents.
             dup.setNodeParents();
-        }
-        catch (CloneNotSupportedException e) {
+        } catch (CloneNotSupportedException e) {
             e.printStackTrace();
         }
 
         return dup;
+    }
+
+    /**
+     * Iterates through the tree and sets node parents to correct references.
+     * This method should be called after cloning an entire tree because cloning
+     * cannot correctly clone parent references.
+     **/
+    private void setNodeParents() {
+        if (leftChild != null) {
+            leftChild.setNodeParents();
+        }
+        if (rightChild != null) {
+            rightChild.setNodeParents();
+        }
     }
 }
