@@ -11,6 +11,7 @@ import edu.caltech.nanodb.qeval.PlanCost;
 import edu.caltech.nanodb.qeval.SelectivityEstimator;
 
 /**
+ * 通过{@link SelectNode#getNextTuple()}进行过滤<br/>
  * This select plan node implements a simple filter of a subplan based on a
  * predicate.
  */
