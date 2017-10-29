@@ -185,9 +185,8 @@ public abstract class PlanNode implements Cloneable {
     public abstract boolean supportsMarking();
 
     /**
-     * 要求左子节点支持marking
-     * This method reports whether this plan node requires the left child to
-     * support marking for proper evaluation.
+     * 要求左子节点支持marking This method reports whether this plan node requires the
+     * left child to support marking for proper evaluation.
      *
      * @return true if the node requires that its left child supports marking,
      *         false otherwise.
@@ -195,9 +194,8 @@ public abstract class PlanNode implements Cloneable {
     public abstract boolean requiresLeftMarking();
 
     /**
-     * 要求右子节点支持marking
-     * This method reports whether this plan node requires the right child to
-     * support marking for proper evaluation.
+     * 要求右子节点支持marking This method reports whether this plan node requires the
+     * right child to support marking for proper evaluation.
      *
      * @return true if the node requires that its right child supports marking,
      *         false otherwise.
@@ -416,7 +414,7 @@ public abstract class PlanNode implements Cloneable {
     /**
      * Checks if the argument is a plan node tree with the same structure, but
      * not necesarily the same references.
-     * 
+     *
      * @param obj the object to which we are comparing
      *
      * @design We re-declare this here to force its implementation in

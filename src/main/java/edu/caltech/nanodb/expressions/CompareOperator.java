@@ -220,6 +220,9 @@ public class CompareOperator extends Expression {
     }
 
 
+    /**
+     * 将对比表达式标准化，确保左边是ColumnValue，右边为常量值，如a<10
+     */
     public void normalize() {
         if (leftExpr instanceof LiteralValue && rightExpr instanceof ColumnValue) {
             // Switch left and right expressions.

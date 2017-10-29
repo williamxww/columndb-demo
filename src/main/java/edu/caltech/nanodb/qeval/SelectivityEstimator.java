@@ -1,6 +1,5 @@
 package edu.caltech.nanodb.qeval;
 
-
 import java.util.ArrayList;
 import java.util.HashSet;
 
@@ -18,20 +17,17 @@ import edu.caltech.nanodb.relations.Schema;
 
 import org.apache.log4j.Logger;
 
-
 /**
  * This utility class is used to estimate the selectivity of predicates that
  * appear on Select and Theta-Join plan-nodes.
  */
 public class SelectivityEstimator {
 
-    /** A logging object for reporting anything interesting that happens. **/
     private static Logger logger = Logger.getLogger(SelectivityEstimator.class);
-
 
     /**
      * This collection specifies the data-types that support comparison
-     * selectivity estimates (not including equals or not-equals).  It must be
+     * selectivity estimates (not including equals or not-equals). It must be
      * possible to use the {@link #computeRatio} on the data-type so that an
      * estimate can be made about where a value fits within the minimum and
      * maximum values for the column.
@@ -41,12 +37,7 @@ public class SelectivityEstimator {
      */
     private static HashSet<SQLDataType> SUPPORTED_TYPES_COMPARE_ESTIMATES;
 
-
     static {
-        // Initialize the set of types that support comparison selectivity
-        // estimates.  In time, types like dates, times, NUMERIC, etc. could be
-        // added as well.
-
         SUPPORTED_TYPES_COMPARE_ESTIMATES = new HashSet<SQLDataType>();
 
         SUPPORTED_TYPES_COMPARE_ESTIMATES.add(SQLDataType.INTEGER);
@@ -57,26 +48,22 @@ public class SelectivityEstimator {
         SUPPORTED_TYPES_COMPARE_ESTIMATES.add(SQLDataType.DOUBLE);
     }
 
-
     /**
      * This constant specifies the default selectivity assumed when a select
-     * predicate is too complicated to compute more accurate estimates.  We are
+     * predicate is too complicated to compute more accurate estimates. We are
      * assuming that generally people are going to do things that limit the
      * results produced.
      */
     public static final float DEFAULT_SELECTIVITY = 0.25f;
 
-
-    /** This class should not be instantiated. */
     private SelectivityEstimator() {
         throw new IllegalArgumentException("This class should not be instantiated.");
     }
 
-
     /**
      * Returns true if the database supports selectivity estimates for
      * comparisons (other than equals and not-equals) on the specified SQL data
-     * type.  SQL types that support these selectivity estimates will include
+     * type. SQL types that support these selectivity estimates will include
      * minimum and maximum values in their column-statistics.
      *
      * @param type the SQL data type being considered
@@ -87,10 +74,9 @@ public class SelectivityEstimator {
         return SUPPORTED_TYPES_COMPARE_ESTIMATES.contains(type);
     }
 
-
     /**
      * This function computes the selectivity of a selection predicate, using
-     * table statistics and other estimates to make an educated guess.  The
+     * table statistics and other estimates to make an educated guess. The
      * result is between 0.0 and 1.0, with 1.0 meaning that all rows will be
      * selected by the predicate.
      *
@@ -103,16 +89,14 @@ public class SelectivityEstimator {
      *
      * @return the estimated selectivity as a float
      */
-    public static float estimateSelectivity(Expression expr, Schema exprSchema,
-                                            ArrayList<ColumnStats> stats) {
+    public static float estimateSelectivity(Expression expr, Schema exprSchema, ArrayList<ColumnStats> stats) {
         float selectivity = DEFAULT_SELECTIVITY;
 
         if (expr instanceof BooleanOperator) {
             // A Boolean AND, OR, or NOT operation.
             BooleanOperator bool = (BooleanOperator) expr;
             selectivity = estimateBoolOperSelectivity(bool, exprSchema, stats);
-        }
-        else if (expr instanceof CompareOperator) {
+        } else if (expr instanceof CompareOperator) {
             // This is a simple comparison between expressions.
             CompareOperator comp = (CompareOperator) expr;
             selectivity = estimateCompareSelectivity(comp, exprSchema, stats);
@@ -121,14 +105,13 @@ public class SelectivityEstimator {
         return selectivity;
     }
 
-
     /**
      * This function computes a selectivity estimate for a general Boolean
-     * expression that may be comprised of one or more components.  The method
+     * expression that may be comprised of one or more components. The method
      * treats components as independent, estimating the selectivity of each one
      * separately, and then combines the results based on whether the Boolean
      * operation is an <tt>AND</tt>, an <tt>OR</tt>, or a <tt>NOT</tt>
-     * operation.  As one might expect, this method delegates to
+     * operation. As one might expect, this method delegates to
      * {@link #estimateSelectivity} to compute the selectivity of individual
      * terms.
      *
@@ -142,8 +125,8 @@ public class SelectivityEstimator {
      *
      * @return a selectivity estimate in the range [0, 1].
      */
-    public static float estimateBoolOperSelectivity(BooleanOperator bool,
-        Schema exprSchema, ArrayList<ColumnStats> stats) {
+    public static float estimateBoolOperSelectivity(BooleanOperator bool, Schema exprSchema,
+            ArrayList<ColumnStats> stats) {
 
         float selectivity = 1.0f;
         float term;
@@ -151,46 +134,44 @@ public class SelectivityEstimator {
         int numTerms = bool.getNumTerms();
 
         switch (bool.getType()) {
-        case AND_EXPR:
-            // This is an AND:  Multiply conjunct selectivities together.
-            for (int i = 0; i < numTerms; i++) {
-                term = estimateSelectivity(bool.getTerm(i), exprSchema, stats);
-                selectivity *= term;
-            }
+            case AND_EXPR:
+                // This is an AND: Multiply conjunct selectivities together.
+                for (int i = 0; i < numTerms; i++) {
+                    term = estimateSelectivity(bool.getTerm(i), exprSchema, stats);
+                    selectivity *= term;
+                }
+                break;
 
-            break;
+            case OR_EXPR:
+                // This is an OR: Multiply the negation of the disjunct
+                // selectivities and negate it.
+                // A OR B的选择率 = 1- (1-sel(A))*(1-sel(B))
+                for (int i = 0; i < numTerms; i++) {
+                    term = estimateSelectivity(bool.getTerm(i), exprSchema, stats);
+                    selectivity *= (1.0f - term);
+                }
+                selectivity = 1.0f - selectivity;
+                break;
 
-        case OR_EXPR:
-            // This is an OR:  Multiply the negation of the disjunct
-            // selectivities and negate it.
-            for (int i = 0; i < numTerms; i++) {
-                term = estimateSelectivity(bool.getTerm(i), exprSchema, stats);
-                selectivity *= (1.0f - term);
-            }
-            selectivity = 1.0f - selectivity;
-            break;
+            case NOT_EXPR:
+                // This is a NOT: Return the negation of the selectivity.
+                term = estimateSelectivity(bool.getTerm(0), exprSchema, stats);
+                selectivity = 1.0f - term;
+                break;
 
-        case NOT_EXPR:
-            // This is a NOT:  Return the negation of the selectivity.
-            term = estimateSelectivity(bool.getTerm(0), exprSchema, stats);
-            selectivity = 1.0f - term;
-            break;
-
-        default:
-            // Shouldn't have any other Boolean expression types.
-            assert false : "Unexpected Boolean operator type:  " + bool.getType();
+            default:
+                // Shouldn't have any other Boolean expression types.
+                assert false : "Unexpected Boolean operator type:  " + bool.getType();
         }
 
-        logger.debug("Estimated selectivity of Boolean operator \"" + bool +
-            "\" as " + selectivity);
+        logger.debug("Estimated selectivity of Boolean operator \"" + bool + "\" as " + selectivity);
 
         return selectivity;
     }
 
-
     /**
      * This function computes a selectivity estimate for a general comparison
-     * operation.  The method examines the types of the arguments in the
+     * operation. The method examines the types of the arguments in the
      * comparison and determines if it will be possible to make a reasonable
      * guess as to the comparison's selectivity; if not then a default
      * selectivity estimate is used.
@@ -205,15 +186,12 @@ public class SelectivityEstimator {
      *
      * @return a selectivity estimate in the range [0, 1].
      */
-    public static float estimateCompareSelectivity(CompareOperator comp,
-        Schema exprSchema, ArrayList<ColumnStats> stats) {
+    public static float estimateCompareSelectivity(CompareOperator comp, Schema exprSchema,
+            ArrayList<ColumnStats> stats) {
 
         float selectivity = DEFAULT_SELECTIVITY;
 
-        // Move the comparison into a normalized order so that it's easier to
-        // write the logic for analysis.  Specifically, this will ensure that
-        // if we are comparing a column and a value, the column will always be
-        // on the left and the value will always be on the right.
+        // 尽量使左边是变量右边是常量，便于比较
         comp.normalize();
 
         Expression left = comp.getLeftExpression();
@@ -222,31 +200,27 @@ public class SelectivityEstimator {
         // If the comparison is simple enough then compute its selectivity.
         // Otherwise, just use the default selectivity.
         if (left instanceof ColumnValue && right instanceof LiteralValue) {
-            // Comparison:  column op value
-            selectivity = estimateCompareColumnValue(comp.getType(),
-                (ColumnValue) left, (LiteralValue) right, exprSchema, stats);
+            // Comparison: column op value
+            selectivity = estimateCompareColumnValue(comp.getType(), (ColumnValue) left, (LiteralValue) right,
+                    exprSchema, stats);
 
-            logger.debug("Estimated selectivity of cmp-col-val operator \"" +
-                comp + "\" as " + selectivity);
-        }
-        else if (left instanceof ColumnValue && right instanceof ColumnValue) {
-            // Comparison:  column op column
-            selectivity = estimateCompareColumnColumn(comp.getType(),
-                (ColumnValue) left, (ColumnValue) right, exprSchema, stats);
+            logger.debug("Estimated selectivity of cmp-col-val operator \"" + comp + "\" as " + selectivity);
+        } else if (left instanceof ColumnValue && right instanceof ColumnValue) {
+            // Comparison: column op column
+            selectivity = estimateCompareColumnColumn(comp.getType(), (ColumnValue) left, (ColumnValue) right,
+                    exprSchema, stats);
 
-            logger.debug("Estimated selectivity of cmp-col-col operator \"" +
-                comp + "\" as " + selectivity);
+            logger.debug("Estimated selectivity of cmp-col-col operator \"" + comp + "\" as " + selectivity);
         }
 
         return selectivity;
     }
 
-
     /**
      * This helper function computes a selectivity estimate for a comparison
-     * between a column and a literal value.  Note that the comparison is always
+     * between a column and a literal value. Note that the comparison is always
      * assumed to have the column-name on the <em>left</em>, and the literal
-     * value on the <em>right</em>.  Examples would be <tt>T1.A &gt; 5</tt>, or
+     * value on the <em>right</em>. Examples would be <tt>T1.A &gt; 5</tt>, or
      * <tt>T2.C = 15</tt>.
      *
      * @param compType the type of the comparison, e.g. equals, not-equals, or
@@ -263,16 +237,12 @@ public class SelectivityEstimator {
      *
      * @return a selectivity estimate in the range [0, 1].
      */
-    private static float estimateCompareColumnValue(CompareOperator.Type compType,
-        ColumnValue columnValue, LiteralValue literalValue,
-        Schema exprSchema, ArrayList<ColumnStats> stats) {
-
-        // Comparison:  column op value
+    private static float estimateCompareColumnValue(CompareOperator.Type compType, ColumnValue columnValue,
+            LiteralValue literalValue, Schema exprSchema, ArrayList<ColumnStats> stats) {
 
         float selectivity = DEFAULT_SELECTIVITY;
-        
-        // Pull out the critical values for making the estimates.
 
+        // Pull out the critical values for making the estimates.
         int colIndex = exprSchema.getColumnIndex(columnValue.getColumnName());
         ColumnInfo colInfo = exprSchema.getColumnInfo(colIndex);
         SQLDataType sqlType = colInfo.getType().getBaseType();
@@ -281,78 +251,55 @@ public class SelectivityEstimator {
         Object value = literalValue.evaluate();
 
         switch (compType) {
-        case EQUALS:
-        case NOT_EQUALS:
-            // Compute the equality value.  Then, if inequality, invert the
-            // result.
+            case EQUALS:
+            case NOT_EQUALS:
+                // 根据此列有多少不同值即可算出选择率
+                int numUnique = colStats.getNumUniqueValues();
+                if (numUnique > 0) {
+                    selectivity = 1.0f / (float) numUnique;
+                    if (compType == CompareOperator.Type.NOT_EQUALS) {
+                        // 不等于就直接取反
+                        selectivity = 1.0f - selectivity;
+                    }
+                }
+                break;
 
-            // We can make this selectivity estimate regardless of the
-            // column's type, as long as we have a count of the distinct
-            // values that appear in the column.
+            case GREATER_OR_EQUAL:
+            case LESS_THAN:
+                if (typeSupportsCompareEstimates(sqlType) && colStats.hasDifferentMinMaxValues()) {
+                    Object minVal = colStats.getMinValue();
+                    Object maxVal = colStats.getMaxValue();
+                    // selectivity = (maxVal-value)/(maxVal-minVal)
+                    selectivity = computeRatio(value, maxVal, minVal, maxVal);
+                    if (compType == CompareOperator.Type.LESS_THAN) {
+                        selectivity = 1.0f - selectivity;
+                    }
+                }
+                break;
 
-            int numUnique = colStats.getNumUniqueValues();
-            if (numUnique > 0) {
-                selectivity = 1.0f / (float) numUnique;
-                if (compType == CompareOperator.Type.NOT_EQUALS)
-                    selectivity = 1.0f - selectivity;
-            }
+            case LESS_OR_EQUAL:
+            case GREATER_THAN:
+                if (typeSupportsCompareEstimates(sqlType) && colStats.hasDifferentMinMaxValues()) {
+                    Object minVal = colStats.getMinValue();
+                    Object maxVal = colStats.getMaxValue();
+                    selectivity = computeRatio(minVal, value, minVal, maxVal);
+                    if (compType == CompareOperator.Type.GREATER_THAN) {
+                        selectivity = 1.0f - selectivity;
+                    }
+                }
+                break;
 
-            break;
-
-        case GREATER_OR_EQUAL:
-        case LESS_THAN:
-            // Compute the greater-or-equal value.  Then, if less-than,
-            // invert the result.
-
-            // Only estimate selectivity for this kind of expression if the
-            // column's type supports it.
-
-            if (typeSupportsCompareEstimates(sqlType) &&
-                colStats.hasDifferentMinMaxValues()) {
-
-                Object minVal = colStats.getMinValue();
-                Object maxVal = colStats.getMaxValue();
-
-                selectivity = computeRatio(value, maxVal, minVal, maxVal);
-                if (compType == CompareOperator.Type.LESS_THAN)
-                    selectivity = 1.0f - selectivity;
-            }
-
-            break;
-
-        case LESS_OR_EQUAL:
-        case GREATER_THAN:
-            // Compute the less-or-equal value.  Then, if greater-than,
-            // invert the result.
-
-            // Only estimate selectivity for this kind of expression if the
-            // column's type supports it.
-
-            if (typeSupportsCompareEstimates(sqlType) &&
-                colStats.hasDifferentMinMaxValues()) {
-
-                Object minVal = colStats.getMinValue();
-                Object maxVal = colStats.getMaxValue();
-
-                selectivity = computeRatio(minVal, value, minVal, maxVal);
-                if (compType == CompareOperator.Type.GREATER_THAN)
-                    selectivity = 1.0f - selectivity;
-            }
-
-            break;
-
-        default:
-            // Shouldn't be any other comparison types...
-            assert false : "Unexpected compare-operator type:  " + compType;
+            default:
+                // Shouldn't be any other comparison types...
+                assert false : "Unexpected compare-operator type:  " + compType;
         }
 
         return selectivity;
     }
 
-
     /**
      * This helper function computes a selectivity estimate for a comparison
-     * between two columns.  Examples would be <tt>T1.A = T2.A</tt>.
+     * between two columns. Examples would be <tt>T1.A = T2.A</tt>.
      *
      * @param compType the type of the comparison, e.g. equals, not-equals, or
      *        some inequality comparison
@@ -368,11 +315,10 @@ public class SelectivityEstimator {
      *
      * @return a selectivity estimate in the range [0, 1].
      */
-    private static float estimateCompareColumnColumn(CompareOperator.Type compType,
-        ColumnValue columnOne, ColumnValue columnTwo,
-        Schema exprSchema, ArrayList<ColumnStats> stats) {
+    private static float estimateCompareColumnColumn(CompareOperator.Type compType, ColumnValue columnOne,
+            ColumnValue columnTwo, Schema exprSchema, ArrayList<ColumnStats> stats) {
 
-        // Comparison:  column op column
+        // Comparison: column op column
 
         float selectivity = DEFAULT_SELECTIVITY;
 
@@ -384,9 +330,8 @@ public class SelectivityEstimator {
         ColumnStats colOneStats = stats.get(colOneIndex);
         ColumnStats colTwoStats = stats.get(colTwoIndex);
 
-        if (compType == CompareOperator.Type.EQUALS ||
-            compType == CompareOperator.Type.NOT_EQUALS) {
-            // Compute the equality value.  Then, if inequality, invert the
+        if (compType == CompareOperator.Type.EQUALS || compType == CompareOperator.Type.NOT_EQUALS) {
+            // Compute the equality value. Then, if inequality, invert the
             // result.
 
             // We can make this selectivity estimate regardless of the
@@ -406,43 +351,31 @@ public class SelectivityEstimator {
         return selectivity;
     }
 
-
     /**
-     * This method computes the function
-     * (<em>high</em><sub>1</sub> - <em>low</em><sub>1</sub>) /
-     * (<em>high</em><sub>2</sub> - <em>low</em><sub>2</sub>), given
-     * <tt>Object</tt>-values that can be coerced into types that can
-     * be used for arithmetic.  This operation is useful for estimating the
-     * selectivity of comparison operations, if we know the minimum and maximum
-     * values for a column.
-     * <p>
-     * The result of this operation is clamped to the range [0, 1].
+     * This method computes the function (high1-low1)/(high2-low2)<br/>
+     * given <tt>Object</tt>-values that can be coerced into types that can be
+     * used for arithmetic.
      *
      * @param low1 the low value for the numerator
      * @param high1 the high value for the numerator
      * @param low2 the low value for the denominator
      * @param high2 the high value for the denominator
      *
-     * @return the ratio of (<em>high</em><sub>1</sub> - <em>low</em><sub>1</sub>) /
-     *         (<em>high</em><sub>2</sub> - <em>low</em><sub>2</sub>), clamped
-     *         to the range [0, 1].
+     * @return the ratio of (<em>high</em><sub>1</sub> - <em>low</em>
+     *         <sub>1</sub>) / (<em>high</em><sub>2</sub> - <em>low</em>
+     *         <sub>2</sub>), clamped to the range [0, 1].
      */
-    private static float computeRatio(Object low1, Object high1,
-                                      Object low2, Object high2) {
+    private static float computeRatio(Object low1, Object high1, Object low2, Object high2) {
 
-        Object diff1 = ArithmeticOperator.evalObjects(
-            ArithmeticOperator.Type.SUBTRACT, high1, low1);
+        Object diff1 = ArithmeticOperator.evalObjects(ArithmeticOperator.Type.SUBTRACT, high1, low1);
 
-        Object diff2 = ArithmeticOperator.evalObjects(
-            ArithmeticOperator.Type.SUBTRACT, high2, low2);
+        Object diff2 = ArithmeticOperator.evalObjects(ArithmeticOperator.Type.SUBTRACT, high2, low2);
 
-        Object ratio = ArithmeticOperator.evalObjects(
-            ArithmeticOperator.Type.DIVIDE, diff1, diff2);
+        Object ratio = ArithmeticOperator.evalObjects(ArithmeticOperator.Type.DIVIDE, diff1, diff2);
 
         float fltRatio = TypeConverter.getFloatValue(ratio);
 
-        logger.debug(String.format("Ratio:  (%s - %s) / (%s - %s) = %.2f",
-            high1, low1, high2, low2, fltRatio));
+        logger.debug(String.format("Ratio:  (%s - %s) / (%s - %s) = %.2f", high1, low1, high2, low2, fltRatio));
 
         // Clamp the value to the range [0, 1].
         if (fltRatio < 0.0f)

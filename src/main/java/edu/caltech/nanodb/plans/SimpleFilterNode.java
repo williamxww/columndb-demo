@@ -1,7 +1,6 @@
 package edu.caltech.nanodb.plans;
 
 import java.io.IOException;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +9,6 @@ import edu.caltech.nanodb.expressions.OrderByExpression;
 import edu.caltech.nanodb.qeval.ColumnStats;
 import edu.caltech.nanodb.qeval.PlanCost;
 import edu.caltech.nanodb.qeval.SelectivityEstimator;
-import edu.caltech.nanodb.qeval.TableStats;
 
 /**
  * This select plan node implements a simple filter of a subplan based on a
@@ -18,6 +16,12 @@ import edu.caltech.nanodb.qeval.TableStats;
  */
 public class SimpleFilterNode extends SelectNode {
 
+    /**
+     * WHERE 语句对应的node
+     * 
+     * @param child 此node只有left child一个子节点
+     * @param predicate WHERE的过滤条件
+     */
     public SimpleFilterNode(PlanNode child, Expression predicate) {
         super(child, predicate);
     }
@@ -30,42 +34,21 @@ public class SimpleFilterNode extends SelectNode {
     }
 
     @Override
-    public boolean supportsMarking() {
-        return leftChild.supportsMarking();
-    }
-
-    @Override
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    @Override
-    public boolean requiresRightMarking() {
-        return false;
-    }
-
-    @Override
     public void prepare() {
-        // Need to prepare the left child-node before we can do our own work.
         leftChild.prepare();
 
-        // Grab the schema from the left child.
+        // 获取schema & stats
         schema = leftChild.getSchema();
         ArrayList<ColumnStats> childStats = leftChild.getStats();
 
-        // If we don't have a predicate, selectivity is 100%. Otherwise,
-        // compute the selectivity based on the selection predicate.
-
+        // 计算出基于predicate的选择率
         float selectivity = 1.0f;
         if (predicate != null) {
             selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, childStats);
         }
 
-        // Grab the left child's cost, then update the cost based on the
-        // selectivity of our predicate.
-
+        // 根据子节点的cost和选择率来计算本层的cost
         PlanCost childCost = leftChild.getCost();
-
         cost = new PlanCost(childCost);
         cost.numTuples *= selectivity;
 
@@ -82,7 +65,6 @@ public class SimpleFilterNode extends SelectNode {
     @Override
     public void initialize() {
         super.initialize();
-
         leftChild.initialize();
     }
 
@@ -110,6 +92,21 @@ public class SimpleFilterNode extends SelectNode {
     @Override
     public void resetToLastMark() {
         leftChild.resetToLastMark();
+    }
+
+    @Override
+    public boolean supportsMarking() {
+        return leftChild.supportsMarking();
+    }
+
+    @Override
+    public boolean requiresLeftMarking() {
+        return false;
+    }
+
+    @Override
+    public boolean requiresRightMarking() {
+        return false;
     }
 
     /**

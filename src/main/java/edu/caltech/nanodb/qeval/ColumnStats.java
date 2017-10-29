@@ -1,56 +1,45 @@
 package edu.caltech.nanodb.qeval;
 
-
 /**
- * This class holds some useful statistics for a specific column.  At present
+ * This class holds some useful statistics for a specific column. At present
  * this consists of the following:
  * <ul>
- *   <li>the number of unique values in the column (not including <tt>NULL</tt>
- *       in the count)</li>
- *   <li>the number of <tt>NULL</tt> values in the column</li>
- *   <li>the minimum value for the column</li>
- *   <li>the maximum value for the column</li>
+ * <li>the number of unique values in the column (not including <tt>NULL</tt> in
+ * the count)</li>
+ * <li>the number of <tt>NULL</tt> values in the column</li>
+ * <li>the minimum value for the column</li>
+ * <li>the maximum value for the column</li>
  * </ul>
  * The {@link ColumnStatsCollector} class can be used to easily collect these
  * statistics for a particular column of a table.
  */
 public class ColumnStats {
     /**
-     * The total number of unique values for this column in the table, or -1 if
-     * the total number of unique values is unknown.
+     * 有多少个不同值，默认-1
      */
     private int numUniqueValues;
 
-
     /**
-     * The total number of <tt>NULL</tt> values for this column in the table,
-     * or -1 if the total number of <tt>NULL</tt> values is unknown.
+     * 有多少个NULL，默认-1
      */
     private int numNullValues;
 
-
     /**
-     * The minimum value of this column in the table, or <tt>null</tt> if the
-     * minimum value is unknown.
+     * 此列的最小值，默认NULL
      */
     private Object minValue;
 
-
     /**
-     * The maximum value of this column in the table, or <tt>null</tt> if the
-     * maximum value is unknown.
+     * 此列的最大值，默认NULL
      */
     private Object maxValue;
 
-
-    /** Initializes a column-stats object to all "unknown" values. */
     public ColumnStats() {
         numUniqueValues = -1;
         numNullValues = -1;
         minValue = null;
         maxValue = null;
     }
-
 
     /**
      * Initializes a column-stats object with the specified values.
@@ -64,14 +53,12 @@ public class ColumnStats {
      * @param maxValue the maximum value in the column, or <tt>null</tt> if
      *        unknown
      */
-    public ColumnStats(int numUniqueValues, int numNullValues,
-                       Object minValue, Object maxValue) {
+    public ColumnStats(int numUniqueValues, int numNullValues, Object minValue, Object maxValue) {
         setNumUniqueValues(numUniqueValues);
         setNumNullValues(numNullValues);
         setMinValue(minValue);
         setMaxValue(maxValue);
     }
-
 
     /**
      * Returns the number of unique values for the column, or -1 if the number
@@ -84,22 +71,18 @@ public class ColumnStats {
         return numUniqueValues;
     }
 
-
     /**
      * Sets the number of unique values for the column.
      *
-     * @param num the number of unique values in the table for the column, or
-     *        -1 if the number if unknown
+     * @param num the number of unique values in the table for the column, or -1
+     *        if the number if unknown
      */
     public void setNumUniqueValues(int num) {
         if (num < -1) {
-            throw new IllegalArgumentException(
-                "Number of unique values must be >= -1; got " + num);
+            throw new IllegalArgumentException("Number of unique values must be >= -1; got " + num);
         }
-
         numUniqueValues = num;
     }
-
 
     /**
      * Returns the number of <tt>NULL</tt> values for the column, or -1 if the
@@ -112,7 +95,6 @@ public class ColumnStats {
         return numNullValues;
     }
 
-
     /**
      * Sets the number of <tt>NULL</tt> values for the column.
      *
@@ -121,14 +103,10 @@ public class ColumnStats {
      */
     public void setNumNullValues(int num) {
         if (num < -1) {
-            throw new IllegalArgumentException(
-                "Number of NULL values must be >= -1; got " + num);
+            throw new IllegalArgumentException("Number of NULL values must be >= -1; got " + num);
         }
-
         numNullValues = num;
     }
-
-
 
     /**
      * Returns the minimum value for the column.
@@ -139,7 +117,6 @@ public class ColumnStats {
         return minValue;
     }
 
-
     /**
      * Sets the minimum value for the column.
      *
@@ -148,7 +125,6 @@ public class ColumnStats {
     public void setMinValue(Object minValue) {
         this.minValue = minValue;
     }
-
 
     /**
      * Returns the maximum value for the column.
@@ -159,7 +135,6 @@ public class ColumnStats {
         return maxValue;
     }
 
-
     /**
      * Sets the maximum value for the column.
      *
@@ -168,7 +143,6 @@ public class ColumnStats {
     public void setMaxValue(Object maxValue) {
         this.maxValue = maxValue;
     }
-
 
     /**
      * Returns <tt>true</tt> if this column-stats object has both minimum and
@@ -180,7 +154,6 @@ public class ColumnStats {
     public boolean hasMinMaxValues() {
         return (minValue != null && maxValue != null);
     }
-
 
     /**
      * Returns <tt>true</tt> if this column-stats object has both minimum and

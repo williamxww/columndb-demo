@@ -1,6 +1,5 @@
 package edu.caltech.nanodb.plans;
 
-
 import edu.caltech.nanodb.expressions.Expression;
 import edu.caltech.nanodb.expressions.TupleLiteral;
 
@@ -11,20 +10,22 @@ import edu.caltech.nanodb.relations.Tuple;
 
 import java.util.ArrayList;
 
-
 /**
  * PlanNode representing the <tt>FROM</tt> clause in a <tt>SELECT</tt>
- * operation.  This is the relational algebra ThetaJoin operator.
+ * operation. This is the relational algebra ThetaJoin operator.
  */
 public abstract class ThetaJoinNode extends PlanNode {
 
-    /** The type of the join operation to perform. */
+    /**
+     * @see JoinType#LEFT_OUTER
+     * @see JoinType#INNER
+     */
     public JoinType joinType;
 
-
-    /** Join condition. */
+    /**
+     * Join condition. like A.ID=B.ID IN  WHERE clause( A JOIN B ON A.ID=B.ID)
+     */
     public Expression predicate;
-
 
     /**
      * The cached schema of the left subplan, used for join-predicate
@@ -32,10 +33,10 @@ public abstract class ThetaJoinNode extends PlanNode {
      */
     protected Schema leftSchema;
 
-
-    /** The cached statistics of the left subplan, used for cost estimation. */
+    /**
+     * The cached statistics of the left subplan, used for cost estimation.
+     */
     protected ArrayList<ColumnStats> leftStats;
-
 
     /**
      * The cached schema of the right subplan, used for join-predicate
@@ -43,21 +44,18 @@ public abstract class ThetaJoinNode extends PlanNode {
      */
     protected Schema rightSchema;
 
-
     /** The cached statistics of the right subplan, used for cost estimation. */
     protected ArrayList<ColumnStats> rightStats;
 
-
     /**
-     * True if the output schema of this node is swapped.  If this flag is true
+     * True if the output schema of this node is swapped. If this flag is true
      * then tuples from the left subplan will be on the right of joined results
      * and so forth, but if the flag is false then the tuples from the left
-     * subplan will be on the left of the joined results.  The schema and the
+     * subplan will be on the left of the joined results. The schema and the
      * statistics values reflect the state of this flag, after {@link #prepare}
      * has been called.
      */
     protected boolean schemaSwapped = false;
-
 
     /**
      * Constructs a ThetaJoinNode that joins the tuples from the left and right
@@ -71,8 +69,7 @@ public abstract class ThetaJoinNode extends PlanNode {
      *
      * @param predicate the join condition
      */
-    public ThetaJoinNode(PlanNode leftChild, PlanNode rightChild,
-        JoinType joinType, Expression predicate) {
+    public ThetaJoinNode(PlanNode leftChild, PlanNode rightChild, JoinType joinType, Expression predicate) {
 
         super(OperationType.THETA_JOIN, leftChild, rightChild);
 
@@ -83,11 +80,10 @@ public abstract class ThetaJoinNode extends PlanNode {
         this.predicate = predicate;
     }
 
-
     /**
      * Combine the left tuple and the right tuple. If schemaSwapped is set to
-     * true, the tuples are copied in the opposite order.  This can only happen if
-     * swap() was called an odd number of times, switching the left and right
+     * true, the tuples are copied in the opposite order. This can only happen
+     * if swap() was called an odd number of times, switching the left and right
      * subtrees.
      *
      * @param left the left tuple
@@ -102,15 +98,13 @@ public abstract class ThetaJoinNode extends PlanNode {
         if (!schemaSwapped) {
             joinedTuple.appendTuple(left);
             joinedTuple.appendTuple(right);
-        }
-        else {
+        } else {
             joinedTuple.appendTuple(right);
             joinedTuple.appendTuple(left);
         }
 
         return joinedTuple;
     }
-
 
     /**
      * Do initialization for the join operation. Resets state variables.
@@ -120,21 +114,19 @@ public abstract class ThetaJoinNode extends PlanNode {
         super.initialize();
 
         if (joinType != JoinType.CROSS && joinType != JoinType.INNER) {
-            throw new UnsupportedOperationException(
-                "We don't support joins of type " + joinType + " yet!");
+            throw new UnsupportedOperationException("We don't support joins of type " + joinType + " yet!");
         }
 
         leftChild.initialize();
         rightChild.initialize();
     }
 
-
     /**
      * This helper method can be used by the {@link #prepare} method in
-     * subclasses, to compute the output schema and initial stats of the
-     * join operation.  This method is provided because it takes the
-     * {@link #schemaSwapped} flag into account when ordering the schema
-     * and stats.
+     * subclasses, to compute the output schema and initial stats of the join
+     * operation. This method is provided because it takes the
+     * {@link #schemaSwapped} flag into account when ordering the schema and
+     * stats.
      */
     protected void prepareSchemaStats() {
         leftSchema = leftChild.getSchema();
@@ -152,8 +144,7 @@ public abstract class ThetaJoinNode extends PlanNode {
 
             stats.addAll(leftStats);
             stats.addAll(rightStats);
-        }
-        else {
+        } else {
             schema.append(rightSchema);
             schema.append(leftSchema);
 
@@ -161,7 +152,6 @@ public abstract class ThetaJoinNode extends PlanNode {
             stats.addAll(leftStats);
         }
     }
-
 
     /**
      * Swaps the left child and right child subtrees. Ensures that the schema of
@@ -172,10 +162,9 @@ public abstract class ThetaJoinNode extends PlanNode {
         PlanNode left = leftChild;
         leftChild = rightChild;
         rightChild = left;
-    
+
         schemaSwapped = !schemaSwapped;
     }
-
 
     /**
      * Returns true if the schema is swapped in this theta join node, false

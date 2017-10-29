@@ -18,18 +18,186 @@ import java.util.List;
  */
 public class NestedLoopsJoinNode extends ThetaJoinNode {
 
-    /** Most recently retrieved tuple of the left relation. */
     private Tuple leftTuple;
 
-    /** Most recently retrieved tuple of the right relation. */
     private Tuple rightTuple;
 
-    /** Set to true when we have exhausted all tuples from our subplans. */
     private boolean done;
 
     public NestedLoopsJoinNode(PlanNode leftChild, PlanNode rightChild, JoinType joinType, Expression predicate) {
-
         super(leftChild, rightChild, joinType, predicate);
+    }
+
+    /**
+     * Nested-loop joins can conceivably produce sorted results in situations
+     * where the outer relation is ordered, but we will keep it simple and just
+     * report that the results are not ordered.
+     */
+    public List<OrderByExpression> resultsOrderedBy() {
+        return null;
+    }
+
+    @Override
+    public void prepare() {
+        // Need to prepare the left and right child-nodes before we can do
+        // our own work.
+        leftChild.prepare();
+        rightChild.prepare();
+
+        // Use the parent class' helper-function to prepare the schema.
+        prepareSchemaStats();
+
+        PlanCost leftCost = leftChild.getCost();
+        ArrayList<ColumnStats> leftStats = leftChild.getStats();
+
+        PlanCost rightCost = rightChild.getCost();
+        ArrayList<ColumnStats> rightStats = rightChild.getStats();
+
+        float selectivity = 1.0f;
+        if (predicate != null) {
+            selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, stats);
+        }
+
+        if (leftCost != null && rightCost != null) {
+            // Number of tuples in the plain cartesian product is left*right.
+            // Multiplying this by the selectivity of the join condition we get
+            float numTuples = leftCost.numTuples * rightCost.numTuples * selectivity;
+
+            // Since tuple schemas are concatenated, we add the tuple sizes.
+            float tupleSize = leftCost.tupleSize + rightCost.tupleSize;
+
+            // In a nested loops join, the right table must be fully read once
+            // for
+            // each row in the left table. Thus, we have the left cost, plus the
+            // right cost times the number of tuples on the left.
+
+            float cpuCost = leftCost.cpuCost + leftCost.numTuples * rightCost.cpuCost;
+            long numBlockIOs = leftCost.numBlockIOs + (long) Math.ceil(leftCost.numTuples) * rightCost.numBlockIOs;
+
+            cost = new PlanCost(numTuples, tupleSize, cpuCost, numBlockIOs);
+        }
+    }
+
+    @Override
+    public void initialize() {
+        super.initialize();
+
+        done = false;
+        leftTuple = null;
+        rightTuple = null;
+    }
+
+    @Override
+    public void cleanUp() {
+        leftChild.cleanUp();
+        rightChild.cleanUp();
+    }
+
+    /**
+     * Returns the next joined tuple that satisfies the join condition.
+     *
+     * @return the next joined tuple that satisfies the join condition.
+     *
+     * @throws IOException if a db file failed to open at some point
+     */
+    @Override
+    public Tuple getNextTuple() throws IOException {
+        if (done)
+            return null;
+
+        // 嵌套循环左右tuple，在满足条件的情况下，将tuple组合
+        while (getTuplesToJoin()) {
+            if (canJoinTuples())
+                return joinTuples(leftTuple, rightTuple);
+        }
+
+        return null;
+    }
+
+    /**
+     * A JOIN B ,嵌套循环B中的记录去匹配A的记录，
+     * 
+     * @return 是否还有tuple没有循环到
+     * @throws IOException e
+     */
+    private boolean getTuplesToJoin() throws IOException {
+        if (leftTuple == null && !done) {
+            leftTuple = leftChild.getNextTuple();
+            if (leftTuple == null) {
+                done = true;
+                return !done;
+            }
+        }
+
+        rightTuple = rightChild.getNextTuple();
+        if (rightTuple == null) {
+            // Reached end of right relation. Need to do two things:
+            // * Go to next tuple in left relation.
+            // * Restart iteration over right relation.
+
+            leftTuple = leftChild.getNextTuple();
+            if (leftTuple == null) {
+                // Reached end of left relation. All done.
+                done = true;
+                return !done;
+            }
+
+            rightChild.initialize();
+            rightTuple = rightChild.getNextTuple();
+            if (rightTuple == null) {
+                // Right relation is empty! All done.
+                done = true;
+                // Redundant: return !done;
+            }
+        }
+
+        return !done;
+    }
+
+    /**
+     * 判断leftTuple和rightTuple是否符合谓词，如是否符合 FROM A JOIN B ON A.ID = B.ID
+     * 
+     * @return leftTuple和rightTuple是否能外联
+     */
+    private boolean canJoinTuples() {
+        // If the predicate was not set, we can always join them!
+        if (predicate == null)
+            return true;
+
+        environment.clear();
+        environment.addTuple(leftSchema, leftTuple);
+        environment.addTuple(rightSchema, rightTuple);
+
+        return predicate.evaluatePredicate(environment);
+    }
+
+    @Override
+    public boolean supportsMarking() {
+        return leftChild.supportsMarking() && rightChild.supportsMarking();
+    }
+
+    @Override
+    public boolean requiresLeftMarking() {
+        return false;
+    }
+
+    @Override
+    public boolean requiresRightMarking() {
+        return false;
+    }
+
+    @Override
+    public void markCurrentPosition() {
+        leftChild.markCurrentPosition();
+        rightChild.markCurrentPosition();
+    }
+
+    @Override
+    public void resetToLastMark() throws IllegalStateException {
+        leftChild.resetToLastMark();
+        rightChild.resetToLastMark();
+
+        // TODO: Prepare to reevaluate the join operation for the tuples.
     }
 
     /**
@@ -98,171 +266,5 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
             node.predicate = null;
 
         return node;
-    }
-
-    /**
-     * Nested-loop joins can conceivably produce sorted results in situations
-     * where the outer relation is ordered, but we will keep it simple and just
-     * report that the results are not ordered.
-     */
-    public List<OrderByExpression> resultsOrderedBy() {
-        return null;
-    }
-
-    /** True if the node supports position marking. **/
-    public boolean supportsMarking() {
-        return leftChild.supportsMarking() && rightChild.supportsMarking();
-    }
-
-    /** True if the node requires that its left child supports marking. */
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    /** True if the node requires that its right child supports marking. */
-    public boolean requiresRightMarking() {
-        return false;
-    }
-
-    @Override
-    public void prepare() {
-        // Need to prepare the left and right child-nodes before we can do
-        // our own work.
-        leftChild.prepare();
-        rightChild.prepare();
-
-        // Use the parent class' helper-function to prepare the schema.
-        prepareSchemaStats();
-
-        PlanCost leftCost = leftChild.getCost();
-        ArrayList<ColumnStats> leftStats = leftChild.getStats();
-
-        PlanCost rightCost = rightChild.getCost();
-        ArrayList<ColumnStats> rightStats = rightChild.getStats();
-
-        float selectivity = 1.0f;
-        if (predicate != null) {
-            selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, stats);
-        }
-
-        if (leftCost != null && rightCost != null) {
-            // Number of tuples in the plain cartesian product is left*right.
-            // Multiplying this by the selectivity of the join condition we get
-            float numTuples = leftCost.numTuples * rightCost.numTuples * selectivity;
-
-            // Since tuple schemas are concatenated, we add the tuple sizes.
-            float tupleSize = leftCost.tupleSize + rightCost.tupleSize;
-
-            // In a nested loops join, the right table must be fully read once
-            // for
-            // each row in the left table. Thus, we have the left cost, plus the
-            // right cost times the number of tuples on the left.
-
-            float cpuCost = leftCost.cpuCost + leftCost.numTuples * rightCost.cpuCost;
-            long numBlockIOs = leftCost.numBlockIOs + (long) Math.ceil(leftCost.numTuples) * rightCost.numBlockIOs;
-
-            cost = new PlanCost(numTuples, tupleSize, cpuCost, numBlockIOs);
-        }
-    }
-
-    public void initialize() {
-        super.initialize();
-
-        done = false;
-        leftTuple = null;
-        rightTuple = null;
-    }
-
-    /**
-     * Returns the next joined tuple that satisfies the join condition.
-     *
-     * @return the next joined tuple that satisfies the join condition.
-     *
-     * @throws IOException if a db file failed to open at some point
-     */
-    public Tuple getNextTuple() throws IOException {
-        if (done)
-            return null;
-
-        // 嵌套循环左右tuple，在满足条件的情况下，将tuple组合
-        while (getTuplesToJoin()) {
-            if (canJoinTuples())
-                return joinTuples(leftTuple, rightTuple);
-        }
-
-        return null;
-    }
-
-    /**
-     * A JOIN B ,嵌套循环B中的记录去匹配A的记录，
-     * @return 是否还有tuple没有循环到
-     * @throws IOException e
-     */
-    private boolean getTuplesToJoin() throws IOException {
-        if (leftTuple == null && !done) {
-            leftTuple = leftChild.getNextTuple();
-            if (leftTuple == null) {
-                done = true;
-                return !done;
-            }
-        }
-
-        rightTuple = rightChild.getNextTuple();
-        if (rightTuple == null) {
-            // Reached end of right relation. Need to do two things:
-            // * Go to next tuple in left relation.
-            // * Restart iteration over right relation.
-
-            leftTuple = leftChild.getNextTuple();
-            if (leftTuple == null) {
-                // Reached end of left relation. All done.
-                done = true;
-                return !done;
-            }
-
-            rightChild.initialize();
-            rightTuple = rightChild.getNextTuple();
-            if (rightTuple == null) {
-                // Right relation is empty! All done.
-                done = true;
-                // Redundant: return !done;
-            }
-        }
-
-        return !done;
-    }
-
-    /**
-     * 判断leftTuple和rightTuple是否符合谓词，如是否符合 FROM A JOIN B ON A.ID = B.ID
-     * 
-     * @return leftTuple和rightTuple是否能外联
-     */
-    private boolean canJoinTuples() {
-        // If the predicate was not set, we can always join them!
-        if (predicate == null)
-            return true;
-
-        environment.clear();
-        environment.addTuple(leftSchema, leftTuple);
-        environment.addTuple(rightSchema, rightTuple);
-
-        return predicate.evaluatePredicate(environment);
-    }
-
-    public void markCurrentPosition() {
-        leftChild.markCurrentPosition();
-        rightChild.markCurrentPosition();
-    }
-
-    public void resetToLastMark() throws IllegalStateException {
-        leftChild.resetToLastMark();
-        rightChild.resetToLastMark();
-
-        // TODO: Prepare to reevaluate the join operation for the tuples.
-    }
-
-    public void cleanUp() {
-        leftChild.cleanUp();
-        rightChild.cleanUp();
     }
 }

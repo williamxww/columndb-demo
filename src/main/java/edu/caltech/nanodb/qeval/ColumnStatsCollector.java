@@ -1,34 +1,31 @@
 package edu.caltech.nanodb.qeval;
 
-
 import edu.caltech.nanodb.relations.SQLDataType;
 
 import java.util.HashSet;
 
-
 /**
  * This class facilitates the collection of statistics for a single column of a
- * table being analyzed by the {@link edu.caltech.nanodb.storage.TableManager#analyzeTable}
- * method.  Instances of the class compute the number of distinct values, the
- * number of non-<tt>NULL</tt> values, and for appropriate data types, the
- * minimum and maximum values for the column.
+ * table being analyzed by the
+ * {@link edu.caltech.nanodb.storage.TableManager#analyzeTable} method.
+ * Instances of the class compute the number of distinct values, the number of
+ * non-<tt>NULL</tt> values, and for appropriate data types, the minimum and
+ * maximum values for the column.
  * <p>
  * The class also makes it very easy to construct a {@link ColumnStats} object
  * from the result of the analysis.
  *
  * @design (Donnie) This class is limited in its ability to efficiently compute
- *         the number of unique values for very large tables.  An
- *         external-memory approach would have to be used to support extremely
- *         large tables.
+ *         the number of unique values for very large tables. An external-memory
+ *         approach would have to be used to support extremely large tables.
  */
 public class ColumnStatsCollector {
 
     /** The SQL data-type for the column that stats are being collected for. */
     private SQLDataType sqlType;
 
-
     /**
-     * The set of all values seen in this column.  This set could obviously
+     * The set of all values seen in this column. This set could obviously
      * occupy a large amount of memory for large tables.
      */
     private HashSet<Object> uniqueValues;
@@ -38,20 +35,17 @@ public class ColumnStatsCollector {
      */
     private int numNullValues;
 
-
     /**
      * The minimum value seen in the column's values, or <tt>null</tt> if the
      * minimum is unknown or won't be computed.
      */
     Comparable minValue;
 
-
     /**
      * The maximum value seen in the column's values, or <tt>null</tt> if the
      * maximum is unknown or won't be computed.
      */
     Comparable maxValue;
-
 
     /**
      * Initializes a new column-stats collector object for a column with the
@@ -66,7 +60,6 @@ public class ColumnStatsCollector {
         minValue = null;
         maxValue = null;
     }
-
 
     /**
      * Adds another column-value to this stats-collector object, updating the
@@ -83,12 +76,10 @@ public class ColumnStatsCollector {
     public void addValue(Object value) {
         if (value == null) {
             numNullValues++;
-        }
-        else {
+        } else {
             // If the value implements the Comparable interface, use it to
             // update the minimum and maximum values.
-            if (SelectivityEstimator.typeSupportsCompareEstimates(sqlType) &&
-                value instanceof Comparable) {
+            if (SelectivityEstimator.typeSupportsCompareEstimates(sqlType) && value instanceof Comparable) {
 
                 Comparable comp = (Comparable) value;
 
@@ -104,7 +95,6 @@ public class ColumnStatsCollector {
         }
     }
 
-
     /**
      * Returns the number of <tt>NULL</tt> values seen for the column.
      *
@@ -113,7 +103,6 @@ public class ColumnStatsCollector {
     public int getNumNullValues() {
         return numNullValues;
     }
-
 
     /**
      * Returns the number of unique (and non-<tt>NULL</tt>) values seen for the
@@ -126,7 +115,6 @@ public class ColumnStatsCollector {
         return uniqueValues.size();
     }
 
-
     /**
      * Returns the minimum value seen for the column, or <tt>null</tt> if the
      * column's type isn't supported for comparison estimates (or if there
@@ -137,7 +125,6 @@ public class ColumnStatsCollector {
     public Object getMinValue() {
         return minValue;
     }
-
 
     /**
      * Returns the maximum value seen for the column, or <tt>null</tt> if the
@@ -150,7 +137,6 @@ public class ColumnStatsCollector {
         return maxValue;
     }
 
-
     /**
      * This helper method constructs and returns a new column-statistics object
      * containing the stats collected by this object.
@@ -159,7 +145,6 @@ public class ColumnStatsCollector {
      *         collected by this object
      */
     public ColumnStats getColumnStats() {
-        return new ColumnStats(getNumUniqueValues(), numNullValues,
-            minValue, maxValue);
+        return new ColumnStats(getNumUniqueValues(), numNullValues, minValue, maxValue);
     }
 }
