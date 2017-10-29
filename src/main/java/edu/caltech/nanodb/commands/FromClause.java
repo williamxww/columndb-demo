@@ -755,7 +755,7 @@ public class FromClause {
                 // Just lump together the result schemas.
                 result.append(leftSchema);
                 result.append(rightSchema);
-
+                // 将join条件赋值给preparedJoinExpr
                 preparedJoinExpr = joinOnExpr;
             }
         }

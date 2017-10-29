@@ -1,6 +1,5 @@
 package edu.caltech.nanodb.plans;
 
-
 import java.util.*;
 import java.io.*;
 
@@ -14,32 +13,25 @@ import edu.caltech.nanodb.relations.ColumnInfo;
 import edu.caltech.nanodb.commands.SelectValue;
 import org.apache.log4j.Logger;
 
-
 /**
  * PlanNode representing the <tt>SELECT</tt> clause in a <tt>SELECT</tt>
- * operation.  This is the relational algebra Project operator.
+ * operation. This is the relational algebra Project operator.
  */
 public class ProjectNode extends PlanNode {
 
-    /** A logging object for reporting anything interesting that happens. **/
     private static Logger logger = Logger.getLogger(ProjectNode.class);
 
-
     /**
-     * This is our guess of how many unique values will be produced by a
-     * project expression, when we cannot determine it from the child plan's
-     * statistics.
+     * This is our guess of how many unique values will be produced by a project
+     * expression, when we cannot determine it from the child plan's statistics.
      */
     private static final int GUESS_NUM_UNIQUE_VALUES = 100;
-
 
     /** The schema of tuples produced by the subplan. */
     private Schema inputSchema;
 
-
     /** The new schema that this project node creates */
     public List<SelectValue> projectionSpec;
-
 
     /**
      * This collection holds the non-wildcard column information, so that we can
@@ -47,14 +39,11 @@ public class ProjectNode extends PlanNode {
      */
     private List<ColumnInfo> nonWildcardColumnInfos;
 
-
     /** Current tuple the node is projecting (in NON-projected form). */
     private Tuple currentTuple;
 
-
     /** True if we have finished pulling tuples from children. */
     private boolean done;
-
 
     /**
      * Constructs a ProjectNode that pulls tuples from a child node.
@@ -63,41 +52,30 @@ public class ProjectNode extends PlanNode {
      * @param projectionSpec the schema to project tuples onto.
      */
     public ProjectNode(PlanNode leftChild, List<SelectValue> projectionSpec) {
-        // This node is a Project node.
         super(OperationType.PROJECT);
-
-        // This node has a child, load child information.
         this.leftChild = leftChild;
-
         this.projectionSpec = projectionSpec;
     }
 
-
+    @Override
     public void prepare() {
-        // Need to prepare the left child-node before we can do our own work.
         leftChild.prepare();
 
-        // Use the helper function to prepare the schema of this project-node,
-        // since it is a complicated operation.
         prepareSchemaStats();
 
-        // Come up with a cost estimate now.  Projection does require some
+        // Come up with a cost estimate now. Projection does require some
         // computation, so increase the CPU cost based on the number of tuples
         // expected to come into this plan-node.
-
         PlanCost inputCost = leftChild.getCost();
         if (inputCost != null) {
             cost = new PlanCost(inputCost);
             cost.cpuCost += inputCost.numTuples;
-        }
-        else {
-            logger.debug(
-                "Child's cost not available; not computing this node's cost.");
+        } else {
+            logger.debug("Child's cost not available; not computing this node's cost.");
         }
 
-        // TODO:  Estimate the final tuple-size.  It isn't hard, just tedious.
+        // TODO: Estimate the final tuple-size. It isn't hard, just tedious.
     }
-
 
     /**
      * This helper function computes the schema of the project plan-node, based
@@ -119,24 +97,21 @@ public class ProjectNode extends PlanNode {
                 if (wildcard.isTableSpecified()) {
                     // Need to find all columns that are associated with the
                     // specified table.
-                    SortedMap<Integer, ColumnInfo> found =
-                        inputSchema.findColumns(wildcard);
+                    SortedMap<Integer, ColumnInfo> found = inputSchema.findColumns(wildcard);
 
                     // Add each column that was found, as well as its stats.
                     schema.append(found.values());
                     for (Integer idx : found.keySet())
                         stats.add(inputStats.get(idx));
-                }
-                else {
+                } else {
                     // No table is specified, so this is all columns in the
                     // child schema.
                     schema.append(inputSchema);
                     stats.addAll(inputStats);
                 }
-            }
-            else if (selVal.isExpression()) {
-                // Determining the schema is relatively straightforward.  The
-                // statistics, unfortunately, are a different matter:  if the
+            } else if (selVal.isExpression()) {
+                // Determining the schema is relatively straightforward. The
+                // statistics, unfortunately, are a different matter: if the
                 // expression is a simple column-reference then we can look up
                 // the stats from the subplan, but if the expression is an
                 // arithmetic operation, we need to guess...
@@ -145,30 +120,27 @@ public class ProjectNode extends PlanNode {
                 ColumnInfo colInfo;
 
                 if (expr instanceof ColumnValue) {
-                    // This is a simple column-reference.  Pull out the schema
+                    // This is a simple column-reference. Pull out the schema
                     // and the statistics from the input.
                     ColumnValue colValue = (ColumnValue) expr;
                     int colIndex = inputSchema.getColumnIndex(colValue.getColumnName());
                     colInfo = inputSchema.getColumnInfo(colIndex);
                     stats.add(inputStats.get(colIndex));
-                }
-                else {
-                    // This is a more complicated expression.  Guess the schema,
+                } else {
+                    // This is a more complicated expression. Guess the schema,
                     // and assume that every row will have a distinct value.
 
                     colInfo = expr.getColumnInfo(inputSchema);
 
-                    // TODO:  We could be more sophisticated about this...
+                    // TODO: We could be more sophisticated about this...
                     ColumnStats colStat = new ColumnStats();
 
                     PlanCost inputCost = leftChild.getCost();
                     if (inputCost != null) {
                         // Adding 0.5 and casting to int is equivalent to
                         // rounding, as long as the input >= 0.
-                        colStat.setNumUniqueValues(
-                            (int) (inputCost.numTuples + 0.5f));
-                    }
-                    else {
+                        colStat.setNumUniqueValues((int) (inputCost.numTuples + 0.5f));
+                    } else {
                         colStat.setNumUniqueValues(GUESS_NUM_UNIQUE_VALUES);
                     }
 
@@ -182,40 +154,34 @@ public class ProjectNode extends PlanNode {
 
                 schema.addColumnInfo(colInfo);
                 nonWildcardColumnInfos.add(colInfo);
-            }
-            else if (selVal.isScalarSubquery()) {
-                throw new UnsupportedOperationException(
-                    "Scalar subquery support is currently incomplete.");
+            } else if (selVal.isScalarSubquery()) {
+                throw new UnsupportedOperationException("Scalar subquery support is currently incomplete.");
             }
         }
     }
 
-
     /** Determines whether the results of the node are sorted. */
+    @Override
     public List<OrderByExpression> resultsOrderedBy() {
-        // TODO:  if subplan is ordered and projected results include the same
-        //        columns, then this node's results are also ordered.
+        // TODO: if subplan is ordered and projected results include the same
+        // columns, then this node's results are also ordered.
         return null;
     }
 
-
-    /** This node supports marking if its subplan supports marking. */
+    @Override
     public boolean supportsMarking() {
         return leftChild.supportsMarking();
     }
 
-
-    /** The project node doesn't require any marking from either child. */
+    @Override
     public boolean requiresLeftMarking() {
         return false;
     }
 
-
-    /** The project node doesn't require any marking from either child. */
+    @Override
     public boolean requiresRightMarking() {
         return false;
     }
-
 
     /**
      * Gets the next tuple and projects it.
@@ -224,6 +190,7 @@ public class ProjectNode extends PlanNode {
      *
      * @throws java.io.IOException if a db file failed to open at some point
      */
+    @Override
     public Tuple getNextTuple() throws IOException {
 
         // If this node is finished finding tuples, return null until it is
@@ -241,12 +208,12 @@ public class ProjectNode extends PlanNode {
             return null;
         }
 
-        // Project the tuple and return.
+        // 将currentTuple映射成所需要的tuple
         return projectTuple(currentTuple);
     }
 
-
-    /** Helper function that advances the current tuple reference in the node.
+    /**
+     * Helper function that advances the current tuple reference in the node.
      *
      * @throws java.lang.IllegalStateException if this is a node no child.
      * @throws java.io.IOException if a db file failed to open at some point
@@ -254,7 +221,6 @@ public class ProjectNode extends PlanNode {
     private void advanceCurrentTuple() throws IOException {
         currentTuple = leftChild.getNextTuple();
     }
-
 
     /**
      * This helper method takes an input tuple and projects it to a result tuple
@@ -281,12 +247,11 @@ public class ProjectNode extends PlanNode {
 
         // For each select value, evaluate it and add it to the tuple.
 
-        Iterator<ColumnInfo> iterNonWildcardCols =
-            nonWildcardColumnInfos.iterator();
+        Iterator<ColumnInfo> iterNonWildcardCols = nonWildcardColumnInfos.iterator();
 
         for (SelectValue selVal : projectionSpec) {
             if (selVal.isWildcard()) {
-                // This value is a wildcard.  Find the columns that match the
+                // This value is a wildcard. Find the columns that match the
                 // wildcard, then add their values one by one.
 
                 // Wildcard expressions cannot rename their results.
@@ -296,19 +261,16 @@ public class ProjectNode extends PlanNode {
                     // Need to find all columns that are associated with the
                     // specified table.
 
-                    SortedMap<Integer, ColumnInfo> matchCols =
-                        inputSchema.findColumns(wildcard);
+                    SortedMap<Integer, ColumnInfo> matchCols = inputSchema.findColumns(wildcard);
 
                     for (int iCol : matchCols.keySet())
                         newTuple.addValue(tuple.getColumnValue(iCol));
-                }
-                else {
+                } else {
                     // No table is specified, so this is all columns in the
                     // child schema.
                     newTuple.appendTuple(tuple);
                 }
-            }
-            else if (selVal.isExpression()) {
+            } else if (selVal.isExpression()) {
                 // This value is a simple expression.
                 Expression expr = selVal.getExpression();
                 String alias = selVal.getAlias();
@@ -318,37 +280,30 @@ public class ProjectNode extends PlanNode {
                 Object result = expr.evaluate(environment);
                 ColumnInfo colInfo = iterNonWildcardCols.next();
 
-                logger.debug(String.format(
-                    "Expression:  %s \tColInfo:  %s\tAlias:  %s",
-                    expr, colInfo, alias));
+                logger.debug(String.format("Expression:  %s \tColInfo:  %s\tAlias:  %s", expr, colInfo, alias));
 
                 // Add the result to the tuple.
 
                 /*
-                if (alias != null)
-                    colInfo = new ColumnInfo(alias, colInfo.getType());
-
-                logger.debug(String.format(
-                    "Result:  %s \tColInfo:  %s\n", result, colInfo));
-                */
+                 * if (alias != null) colInfo = new ColumnInfo(alias,
+                 * colInfo.getType());
+                 * 
+                 * logger.debug(String.format( "Result:  %s \tColInfo:  %s\n",
+                 * result, colInfo));
+                 */
 
                 newTuple.addValue(result);
-            }
-            else if (selVal.isScalarSubquery()) {
-                throw new UnsupportedOperationException(
-                    "Scalar subquery support is currently incomplete");
-            }
-            else {
-                throw new IllegalStateException(
-                    "Select-value doesn't specify a value");
+            } else if (selVal.isScalarSubquery()) {
+                throw new UnsupportedOperationException("Scalar subquery support is currently incomplete");
+            } else {
+                throw new IllegalStateException("Select-value doesn't specify a value");
             }
         }
 
         return newTuple;
     }
 
-
-    /** Do initialization for the select operation.  Resets state variables. */
+    @Override
     public void initialize() {
         super.initialize();
 
@@ -358,86 +313,25 @@ public class ProjectNode extends PlanNode {
         leftChild.initialize();
     }
 
-
+    @Override
     public void markCurrentPosition() {
         leftChild.markCurrentPosition();
     }
 
-
+    @Override
     public void resetToLastMark() {
         leftChild.resetToLastMark();
     }
 
-
+    @Override
     public void cleanUp() {
         leftChild.cleanUp();
     }
 
-
     /**
-     * Checks if the argument is a plan node tree with the same structure,
-     * but not necesarily the same references.
-     *
-     * @param obj the object to which we are comparing
-     */
-    @Override
-    public boolean equals(Object obj) {
-
-        if (obj instanceof ProjectNode) {
-            ProjectNode other = (ProjectNode) obj;
-
-            return projectionSpec.equals(other.projectionSpec) &&
-                   leftChild.equals(other.leftChild);
-        }
-
-        return false;
-    }
-
-
-    /** Computes and returns the hash-code of a project node. */
-    @Override
-    public int hashCode() {
-        int hash = 7;
-        hash = 31 * hash + projectionSpec.hashCode();
-        hash = 31 * hash + leftChild.hashCode();
-        return hash;
-    }
-  
-  
-    /**
-     * Returns a string representing this project node's details.
-     *
-     * @return a string representing this project-node.
-     */
-    @Override
-    public String toString() {
-        return "Project[values:  " + projectionSpec.toString() + "]";
-    }
-
-
-    /**
-     * Creates a copy of this project node and its subtree.  This method is used
-     * by {@link PlanNode#duplicate} to copy a plan tree.
-     */
-    @Override
-    protected PlanNode clone() throws CloneNotSupportedException {
-        ProjectNode node = (ProjectNode) super.clone();
-
-        ArrayList<SelectValue> newList = new ArrayList<SelectValue>();
-        for (SelectValue sel : this.projectionSpec) {
-            SelectValue newSel = (SelectValue) sel.clone();
-            newList.add(newSel);
-        }
-        node.projectionSpec = newList;
-    
-        return node;
-    }
-
-
-    /**
-     * Returns true if the project node is a trivial <tt>*</tt> projection
-     * with no table references.  If the projection is trivial then it could
-     * even be removed.
+     * Returns true if the project node is a trivial <tt>*</tt> projection with
+     * no table references. If the projection is trivial then it could even be
+     * removed.
      *
      * @return true if the select value is a full wildcard value, not even
      *         specifying a table name
@@ -455,4 +349,60 @@ public class ProjectNode extends PlanNode {
 
         return false;
     }
+
+    /**
+     * Checks if the argument is a plan node tree with the same structure, but
+     * not necesarily the same references.
+     *
+     * @param obj the object to which we are comparing
+     */
+    @Override
+    public boolean equals(Object obj) {
+
+        if (obj instanceof ProjectNode) {
+            ProjectNode other = (ProjectNode) obj;
+
+            return projectionSpec.equals(other.projectionSpec) && leftChild.equals(other.leftChild);
+        }
+
+        return false;
+    }
+
+    /** Computes and returns the hash-code of a project node. */
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 31 * hash + projectionSpec.hashCode();
+        hash = 31 * hash + leftChild.hashCode();
+        return hash;
+    }
+
+    /**
+     * Returns a string representing this project node's details.
+     *
+     * @return a string representing this project-node.
+     */
+    @Override
+    public String toString() {
+        return "Project[values:  " + projectionSpec.toString() + "]";
+    }
+
+    /**
+     * Creates a copy of this project node and its subtree. This method is used
+     * by {@link PlanNode#duplicate} to copy a plan tree.
+     */
+    @Override
+    protected PlanNode clone() throws CloneNotSupportedException {
+        ProjectNode node = (ProjectNode) super.clone();
+
+        ArrayList<SelectValue> newList = new ArrayList<SelectValue>();
+        for (SelectValue sel : this.projectionSpec) {
+            SelectValue newSel = (SelectValue) sel.clone();
+            newList.add(newSel);
+        }
+        node.projectionSpec = newList;
+
+        return node;
+    }
+
 }

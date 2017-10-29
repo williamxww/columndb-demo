@@ -272,6 +272,21 @@ next_write_pos:写下一条记录时的起始位置
 |varchar length|varchar val|  pos  |varchar length|varchar val|  pos  |
 ```
 
+### 执行计划
+
+select t.id,t.name, s.id from test t inner join states s on t.id=s.id where t.id>0;
+
+```
+
+NestedLoopsJoinNode
+	|
+RenameNode
+	|
+FileScanNode
+```
+
+
+
 ### 启动日志
 
 edu.caltech.nanodb.client.ExclusiveClient#main

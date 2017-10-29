@@ -51,7 +51,7 @@ public abstract class SelectNode extends PlanNode {
     }
 
     /**
-     * 获取满足谓词的的tuple
+     * 获取满足谓词的的tuple,{@link SimpleFilterNode},{@link FileScanNode}通过此方法进行过滤
      *
      * @return the tuple to be passed up to the next node.
      *
@@ -76,7 +76,6 @@ public abstract class SelectNode extends PlanNode {
             }
         } while (!isTupleSelected(currentTuple));
 
-        // The current tuple now satisfies the predicate, so return it.
         return currentTuple;
     }
 
