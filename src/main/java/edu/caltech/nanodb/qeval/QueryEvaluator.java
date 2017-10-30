@@ -1,11 +1,9 @@
 package edu.caltech.nanodb.qeval;
 
-
 import edu.caltech.nanodb.plans.PlanNode;
 
 import edu.caltech.nanodb.relations.Schema;
 import edu.caltech.nanodb.relations.Tuple;
-
 
 public class QueryEvaluator {
 
@@ -22,11 +20,9 @@ public class QueryEvaluator {
      * @throws Exception if an error occurs during query evaluation or during
      *         tuple-processing.
      */
-    public static EvalStats executePlan(PlanNode plan, TupleProcessor processor)
-        throws Exception {
+    public static EvalStats executePlan(PlanNode plan, TupleProcessor processor) throws Exception {
 
         // Execute the plan, and record some basic statistics as we go.
-
         long startTime = System.nanoTime();
 
         Schema resultSchema = plan.getSchema();
@@ -38,7 +34,7 @@ public class QueryEvaluator {
         try {
             Tuple tuple;
             while (true) {
-                // Get the next tuple.  If there aren't anymore, we're done!
+                // Get the next tuple. If there aren't anymore, we're done!
                 tuple = plan.getNextTuple();
                 if (tuple == null)
                     break;
@@ -48,8 +44,7 @@ public class QueryEvaluator {
                 // Do whatever we're supposed to do with the tuple.
                 processor.process(tuple);
             }
-        }
-        finally {
+        } finally {
             plan.cleanUp();
         }
 
@@ -59,4 +54,3 @@ public class QueryEvaluator {
         return new EvalStats(rowsProduced, elapsedTimeNanos);
     }
 }
-
