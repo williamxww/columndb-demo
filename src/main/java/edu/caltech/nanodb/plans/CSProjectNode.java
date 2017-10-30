@@ -72,29 +72,7 @@ public class CSProjectNode extends PlanNode {
 		done = false;
 	}
 
-	@Override
-	public List<OrderByExpression> resultsOrderedBy() {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
-	@Override
-	public boolean supportsMarking() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public boolean requiresLeftMarking() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public boolean requiresRightMarking() {
-		// TODO Auto-generated method stub
-		return false;
-	}
 
 	@Override
 	public void prepare() {
@@ -164,17 +142,6 @@ public class CSProjectNode extends PlanNode {
 		
 	}
 
-	@Override
-	public void markCurrentPosition() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void resetToLastMark() {
-		// TODO Auto-generated method stub
-		
-	}
 
 	@Override
 	public void cleanUp() {

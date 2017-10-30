@@ -27,12 +27,7 @@ public class SimpleFilterNode extends SelectNode {
         super(child, predicate);
     }
 
-    /**
-     * This node's results are sorted if its subplan produces sorted results.
-     */
-    public List<OrderByExpression> resultsOrderedBy() {
-        return leftChild.resultsOrderedBy();
-    }
+
 
     @Override
     public void prepare() {
@@ -77,37 +72,6 @@ public class SimpleFilterNode extends SelectNode {
     @Override
     protected void advanceCurrentTuple() throws IOException {
         currentTuple = leftChild.getNextTuple();
-    }
-
-    /**
-     * The simple filter node relies on marking/reset support in its subplan.
-     */
-    @Override
-    public void markCurrentPosition() {
-        leftChild.markCurrentPosition();
-    }
-
-    /**
-     * The simple filter node relies on marking/reset support in its subplan.
-     */
-    @Override
-    public void resetToLastMark() {
-        leftChild.resetToLastMark();
-    }
-
-    @Override
-    public boolean supportsMarking() {
-        return leftChild.supportsMarking();
-    }
-
-    @Override
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    @Override
-    public boolean requiresRightMarking() {
-        return false;
     }
 
     /**

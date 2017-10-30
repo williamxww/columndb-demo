@@ -1,7 +1,6 @@
 package edu.caltech.nanodb.plans;
 
 import java.io.IOException;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -11,9 +10,7 @@ import org.apache.log4j.Logger;
 import edu.caltech.nanodb.expressions.OrderByExpression;
 import edu.caltech.nanodb.expressions.TupleComparator;
 import edu.caltech.nanodb.expressions.TupleLiteral;
-
 import edu.caltech.nanodb.qeval.PlanCost;
-
 import edu.caltech.nanodb.relations.Tuple;
 
 public class SortNode extends PlanNode {
@@ -51,33 +48,17 @@ public class SortNode extends PlanNode {
         this.orderByExprs = orderByExprs;
     }
 
-    public List<OrderByExpression> resultsOrderedBy() {
-        return orderByExprs;
-    }
+//    @Override
+//    public List<OrderByExpression> resultsOrderedBy() {
+//        return orderByExprs;
+//    }
 
-    /** The sort plan-node doesn't support marking. */
-    public boolean supportsMarking() {
-        return false;
-    }
-
-    /**
-     * The sort plan-node doesn't require marking from either of its children.
-     */
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    /**
-     * The sort plan-node doesn't require marking from either of its children.
-     */
-    public boolean requiresRightMarking() {
-        return false;
-    }
 
     /**
      * The sort plan-node produces the same schema as its child plan-node, so
      * this method simply caches the subplan's schema object.
      */
+    @Override
     public void prepare() {
         // Need to prepare the left child-node before we can do our own work.
         leftChild.prepare();
@@ -109,6 +90,7 @@ public class SortNode extends PlanNode {
      * state variables or starting the node over from the beginning.
      *
      */
+    @Override
     public void initialize() {
         super.initialize();
 
@@ -131,6 +113,7 @@ public class SortNode extends PlanNode {
      *         filesystem
      * @throws IllegalStateException if a plan node is not properly initialized
      */
+    @Override
     public Tuple getNextTuple() throws IllegalStateException, IOException {
         if (done)
             return null;
@@ -170,20 +153,28 @@ public class SortNode extends PlanNode {
         currentTupleIndex = 0;
     }
 
-    /** The sort plan-node doesn't support marking. */
-    public void markCurrentPosition() {
-        throw new UnsupportedOperationException("Sort plan-node doesn't support marking.");
-    }
-
-    /** The sort plan-node doesn't support marking. */
-    public void resetToLastMark() {
-        throw new UnsupportedOperationException("Sort plan-node doesn't support marking.");
-    }
-
-    /** Clean up after evaluation of the sort plan-node. */
+//    @Override
+//    public void markCurrentPosition() {
+//        throw new UnsupportedOperationException("Sort plan-node doesn't support marking.");
+//    }
+//    @Override
+//    public void resetToLastMark() {
+//        throw new UnsupportedOperationException("Sort plan-node doesn't support marking.");
+//    }
+//    @Override
+//    public boolean supportsMarking() {
+//        return false;
+//    }
+//    @Override
+//    public boolean requiresLeftMarking() {
+//        return false;
+//    }
+//    @Override
+//    public boolean requiresRightMarking() {
+//        return false;
+//    }
+    @Override
     public void cleanUp() {
-        // TODO
-
         leftChild.cleanUp();
     }
 

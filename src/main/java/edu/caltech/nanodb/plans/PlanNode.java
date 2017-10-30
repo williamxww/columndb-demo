@@ -157,50 +157,7 @@ public abstract class PlanNode implements Cloneable {
         this.rightChild = rightChild;
     }
 
-    /**
-     * If the results are ordered in some way, this method returns a collection
-     * of expressions specifying what columns or expressions the results are
-     * ordered by. If the results are not ordered then this method may return
-     * either an empty list or a <tt>null</tt> value.
-     * <p>
-     * When this method returns a list of ordering expressions, the order of the
-     * expressions themselves also matters. The entire set of results will be
-     * ordered by the first expression; rows with the same value for the first
-     * expression will be ordered by the second expression; etc.
-     *
-     * @return If the plan node produces ordered results, this will be a list of
-     *         objects specifying the ordering. If the node doesn't produce
-     *         ordered results then the return-value will either be an empty
-     *         list or it will be <tt>null</tt>.
-     */
-    public abstract List<OrderByExpression> resultsOrderedBy();
 
-    /**
-     * This method reports whether this plan node supports marking a certain
-     * point in the tuple-stream so that processing can return to that point as
-     * needed.
-     *
-     * @return true if the node supports position marking, false otherwise.
-     */
-    public abstract boolean supportsMarking();
-
-    /**
-     * 要求左子节点支持marking This method reports whether this plan node requires the
-     * left child to support marking for proper evaluation.
-     *
-     * @return true if the node requires that its left child supports marking,
-     *         false otherwise.
-     */
-    public abstract boolean requiresLeftMarking();
-
-    /**
-     * 要求右子节点支持marking This method reports whether this plan node requires the
-     * right child to support marking for proper evaluation.
-     *
-     * @return true if the node requires that its right child supports marking,
-     *         false otherwise.
-     */
-    public abstract boolean requiresRightMarking();
 
     /**
      * 生成结果的schema,预估执行消耗和相关统计。<br/>
@@ -277,33 +234,7 @@ public abstract class PlanNode implements Cloneable {
      */
     public abstract Tuple getNextTuple() throws IllegalStateException, IOException;
 
-    /**
-     * Marks the current tuple in the tuple-stream produced by this node. The
-     * {@link #resetToLastMark} method can be used to return to this tuple. Note
-     * that only one marker can be set in the tuple-stream at a time.
-     *
-     * @throws UnsupportedOperationException if the node does not support
-     *         marking.
-     *
-     * @throws IllegalStateException if there is no "current tuple" to mark.
-     *         This will occur if {@link #getNextTuple} hasn't yet been called
-     *         (i.e. we are before the first tuple in the tuple-stream), or if
-     *         we have already reached the end of the tuple-stream (i.e. we are
-     *         after the last tuple in the stream).
-     */
-    public abstract void markCurrentPosition();
 
-    /**
-     * Resets the node's tuple-stream to the most recently marked position. Note
-     * that only one marker can be set in the tuple-stream at a time.
-     *
-     * @throws UnsupportedOperationException if the node does not support
-     *         marking.
-     *
-     * @throws IllegalStateException if {@link #markCurrentPosition} hasn't yet
-     *         been called on this plan-node
-     */
-    public abstract void resetToLastMark();
 
     /**
      * Perform any necessary clean up tasks. This should probably be called when

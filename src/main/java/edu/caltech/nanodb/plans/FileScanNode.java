@@ -17,7 +17,7 @@ import edu.caltech.nanodb.storage.TableManager;
  * A select plan-node that scans a table file, checking the optional predicate
  * against each tuple in the file.
  */
-public class FileScanNode extends SelectNode {
+public class FileScanNode extends SelectNode implements Marked {
 
     private static Logger logger = Logger.getLogger(FileScanNode.class);
 
@@ -42,16 +42,6 @@ public class FileScanNode extends SelectNode {
             throw new NullPointerException("table cannot be null");
 
         this.tblFileInfo = tblFileInfo;
-    }
-
-    /**
-     * Currently we will always say that the file-scan node produces unsorted
-     * results. In actuality, a file scan's results will be sorted if the table
-     * file uses a sequential format, but currently we don't have any sequential
-     * file formats.
-     */
-    public List<OrderByExpression> resultsOrderedBy() {
-        return null;
     }
 
     protected void prepareSchema() {
@@ -93,6 +83,7 @@ public class FileScanNode extends SelectNode {
         jumpToMarkedTuple = false;
     }
 
+    @Override
     public void cleanUp() {
         // Nothing to do!
     }
@@ -183,7 +174,8 @@ public class FileScanNode extends SelectNode {
     /**
      * Computes the hashcode of a PlanNode. This method is used to see if two
      * plan nodes CAN be equal.
-     **/
+     */
+    @Override
     public int hashCode() {
         int hash = 7;
         hash = 31 * hash + (predicate != null ? predicate.hashCode() : 0);

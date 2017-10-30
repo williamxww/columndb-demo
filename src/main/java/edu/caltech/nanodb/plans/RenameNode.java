@@ -31,25 +31,6 @@ public class RenameNode extends PlanNode {
         this.resultTableName = resultTableName;
     }
 
-    @Override
-    public List<OrderByExpression> resultsOrderedBy() {
-        return leftChild.resultsOrderedBy();
-    }
-
-    @Override
-    public boolean supportsMarking() {
-        return leftChild.supportsMarking();
-    }
-
-    @Override
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    @Override
-    public boolean requiresRightMarking() {
-        return false;
-    }
 
     @Override
     public void prepare() {
@@ -76,15 +57,6 @@ public class RenameNode extends PlanNode {
         return leftChild.getNextTuple();
     }
 
-    @Override
-    public void markCurrentPosition() throws UnsupportedOperationException {
-        leftChild.markCurrentPosition();
-    }
-
-    @Override
-    public void resetToLastMark() {
-        leftChild.resetToLastMark();
-    }
 
     @Override
     public void cleanUp() {

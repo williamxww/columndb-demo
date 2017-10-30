@@ -1,17 +1,23 @@
 package edu.caltech.nanodb.plans;
 
-import java.util.*;
-import java.io.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.SortedMap;
 
-import edu.caltech.nanodb.expressions.*;
-import edu.caltech.nanodb.qeval.ColumnStats;
-import edu.caltech.nanodb.qeval.PlanCost;
-import edu.caltech.nanodb.relations.Schema;
-import edu.caltech.nanodb.relations.Tuple;
-import edu.caltech.nanodb.relations.ColumnInfo;
+import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.commands.SelectValue;
-import org.apache.log4j.Logger;
+import edu.caltech.nanodb.expressions.ColumnName;
+import edu.caltech.nanodb.expressions.ColumnValue;
+import edu.caltech.nanodb.expressions.Expression;
+import edu.caltech.nanodb.expressions.TupleLiteral;
+import edu.caltech.nanodb.qeval.ColumnStats;
+import edu.caltech.nanodb.qeval.PlanCost;
+import edu.caltech.nanodb.relations.ColumnInfo;
+import edu.caltech.nanodb.relations.Schema;
+import edu.caltech.nanodb.relations.Tuple;
 
 /**
  * PlanNode representing the <tt>SELECT</tt> clause in a <tt>SELECT</tt>
@@ -160,29 +166,6 @@ public class ProjectNode extends PlanNode {
         }
     }
 
-    /** Determines whether the results of the node are sorted. */
-    @Override
-    public List<OrderByExpression> resultsOrderedBy() {
-        // TODO: if subplan is ordered and projected results include the same
-        // columns, then this node's results are also ordered.
-        return null;
-    }
-
-    @Override
-    public boolean supportsMarking() {
-        return leftChild.supportsMarking();
-    }
-
-    @Override
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    @Override
-    public boolean requiresRightMarking() {
-        return false;
-    }
-
     /**
      * Gets the next tuple and projects it.
      *
@@ -311,16 +294,6 @@ public class ProjectNode extends PlanNode {
         currentTuple = null;
 
         leftChild.initialize();
-    }
-
-    @Override
-    public void markCurrentPosition() {
-        leftChild.markCurrentPosition();
-    }
-
-    @Override
-    public void resetToLastMark() {
-        leftChild.resetToLastMark();
     }
 
     @Override

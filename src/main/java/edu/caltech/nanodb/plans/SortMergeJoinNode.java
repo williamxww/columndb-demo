@@ -46,32 +46,6 @@ public class SortMergeJoinNode extends ThetaJoinNode {
     }
 
 
-    @Override
-    public List<OrderByExpression> resultsOrderedBy() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-
-    /** This plan-node does not support marking. */
-    @Override
-    public boolean supportsMarking() {
-        return false;
-    }
-
-
-    /** This plan-node does not require marking on the left child-plan. */
-    @Override
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-
-    /** This plan-node requires marking on the right child-plan. */
-    @Override
-    public boolean requiresRightMarking() {
-        return true;
-    }
-
 
     private void prepareJoinExpression() {
         if (predicate instanceof BooleanOperator) {
@@ -129,19 +103,19 @@ public class SortMergeJoinNode extends ThetaJoinNode {
         leftChild.prepare();
         rightChild.prepare();
 
-        if (!rightChild.supportsMarking()) {
-            throw new IllegalStateException("Sort-merge join requires the " +
-                "right child-plan to support marking.");
-        }
-
-        // Get the schemas and the result-orderings so that we can analyze the
-        // join-expressions.
-        
-        Schema leftSchema = leftChild.getSchema();
-        List<OrderByExpression> leftOrder = leftChild.resultsOrderedBy();
-
-        Schema rightSchema = rightChild.getSchema();
-        List<OrderByExpression> rightOrder = rightChild.resultsOrderedBy();
+//        if (!rightChild.supportsMarking()) {
+//            throw new IllegalStateException("Sort-merge join requires the " +
+//                "right child-plan to support marking.");
+//        }
+//
+//        // Get the schemas and the result-orderings so that we can analyze the
+//        // join-expressions.
+//
+//        Schema leftSchema = leftChild.getSchema();
+//        List<OrderByExpression> leftOrder = leftChild.resultsOrderedBy();
+//
+//        Schema rightSchema = rightChild.getSchema();
+//        List<OrderByExpression> rightOrder = rightChild.resultsOrderedBy();
         
         
         
@@ -164,18 +138,45 @@ public class SortMergeJoinNode extends ThetaJoinNode {
     }
 
 
-    @Override
-    public void markCurrentPosition() {
-        throw new UnsupportedOperationException(
-            "Sort-merge join plan-node doesn't support marking.");
-    }
-
-
-    @Override
-    public void resetToLastMark() {
-        throw new UnsupportedOperationException(
-            "Sort-merge join plan-node doesn't support marking.");
-    }
+//    @Override
+//    public List<OrderByExpression> resultsOrderedBy() {
+//        return null;  //To change body of implemented methods use File | Settings | File Templates.
+//    }
+//
+//
+//    /** This plan-node does not support marking. */
+//    @Override
+//    public boolean supportsMarking() {
+//        return false;
+//    }
+//
+//
+//    /** This plan-node does not require marking on the left child-plan. */
+//    @Override
+//    public boolean requiresLeftMarking() {
+//        return false;
+//    }
+//
+//
+//    /** This plan-node requires marking on the right child-plan. */
+//    @Override
+//    public boolean requiresRightMarking() {
+//        return true;
+//    }
+//
+//
+//    @Override
+//    public void markCurrentPosition() {
+//        throw new UnsupportedOperationException(
+//            "Sort-merge join plan-node doesn't support marking.");
+//    }
+//
+//
+//    @Override
+//    public void resetToLastMark() {
+//        throw new UnsupportedOperationException(
+//            "Sort-merge join plan-node doesn't support marking.");
+//    }
 
 
     @Override

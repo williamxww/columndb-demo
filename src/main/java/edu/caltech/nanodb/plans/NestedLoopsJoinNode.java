@@ -171,34 +171,6 @@ public class NestedLoopsJoinNode extends ThetaJoinNode {
         return predicate.evaluatePredicate(environment);
     }
 
-    @Override
-    public boolean supportsMarking() {
-        return leftChild.supportsMarking() && rightChild.supportsMarking();
-    }
-
-    @Override
-    public boolean requiresLeftMarking() {
-        return false;
-    }
-
-    @Override
-    public boolean requiresRightMarking() {
-        return false;
-    }
-
-    @Override
-    public void markCurrentPosition() {
-        leftChild.markCurrentPosition();
-        rightChild.markCurrentPosition();
-    }
-
-    @Override
-    public void resetToLastMark() throws IllegalStateException {
-        leftChild.resetToLastMark();
-        rightChild.resetToLastMark();
-
-        // TODO: Prepare to reevaluate the join operation for the tuples.
-    }
 
     /**
      * Checks if the argument is a plan node tree with the same structure, but
