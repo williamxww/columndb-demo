@@ -70,11 +70,11 @@ public abstract class Expression implements Cloneable {
     }
 
     /**
-     * Evaluates an expression as a Boolean predicate.
+     * Evaluates an expression as a Boolean predicate. 计算出environment中的tuple是否满足谓词要求
      *
      * @param env the environment that the predicate is evaluated within
      *
-     * @return the result of the evaluation, converted to a Boolean value
+     * @return  Boolean value
      *
      * @throws ExpressionException if an error occurred during evaluation
      */

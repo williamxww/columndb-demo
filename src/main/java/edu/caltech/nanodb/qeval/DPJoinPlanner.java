@@ -131,15 +131,12 @@ public class DPJoinPlanner implements Planner {
      */
     public PlanNode makePlan(SelectClause selClause) throws IOException {
 
-        // We want to take a simple SELECT a, b, ... FROM A, B, ... WHERE ...
-        // and turn it into a tree of plan nodes.
         FromClause fromClause = selClause.getFromClause();
         if (fromClause == null) {
             throw new UnsupportedOperationException("NanoDB doesn't yet support SQL queries without a FROM clause!");
         }
 
-        // If we have a columnstore table, we can create a separate plan for
-        // that.
+        // If we have a columnstore table, we can create a separate plan for that.
         if (fromClause.isBaseTable()) {
             TableFileInfo tableInfo = StorageManager.getInstance().openTable(fromClause.getTableName());
 
@@ -151,14 +148,11 @@ public class DPJoinPlanner implements Planner {
             }
         }
 
-        // Pull out the top-level conjuncts from the WHERE clause on the query,
-        // since we will handle them in special ways if we have outer joins.
-
+        // 将WHERE后的谓词放入whereConjuncts
         HashSet<Expression> whereConjuncts = new HashSet<Expression>();
         addConjuncts(whereConjuncts, selClause.getWhereExpr());
 
-        // Create an optimal join plan from the top-level from-clause and the
-        // top-level conjuncts.
+        // 通过谓词下移的方式构造JOIN
         JoinComponent joinComp = makeJoinPlan(fromClause, whereConjuncts);
         PlanNode plan = joinComp.joinPlan;
 
@@ -191,12 +185,9 @@ public class DPJoinPlanner implements Planner {
     private JoinComponent makeJoinPlan(FromClause fromClause, Collection<Expression> extraConjuncts)
             throws IOException {
 
-        // These variables receive the leaf-clauses and join conjuncts found
-        // from scanning the sub-clauses. Initially, we put the extra conjuncts
-        // into the collection of conjuncts.
+        // 将表名收集到leafFromClauses，连接条件收集到conjuncts
         HashSet<Expression> conjuncts = new HashSet<Expression>();
         ArrayList<FromClause> leafFromClauses = new ArrayList<FromClause>();
-
         collectDetails(fromClause, conjuncts, leafFromClauses);
 
         logger.debug("Making join-plan for " + fromClause);
@@ -204,10 +195,11 @@ public class DPJoinPlanner implements Planner {
         logger.debug("    Collected FROM-clauses:  " + leafFromClauses);
         logger.debug("    Extra conjuncts:  " + extraConjuncts);
 
+        // WHERE条件谓词和JOIN连接谓词合并
         if (extraConjuncts != null) {
             conjuncts.addAll(extraConjuncts);
         }
-
+        //改为read only
         Set<Expression> roConjuncts = Collections.unmodifiableSet(conjuncts);
 
         // Create a subplan for every single leaf FROM-clause, and prepare the
@@ -241,33 +233,29 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * This helper method pulls the essential details for join optimization out
-     * of a <tt>FROM</tt> clause. <tt>FROM</tt> terms will be added into the set
-     * of from-clauses.
+     * 将from语句中，内联的条件收集到conjuncts，表名放入leafFromClauses
      *
      * @param fromClause the from-clause to collect details from
      *
-     * @param conjuncts the collection to add all conjuncts to
+     * @param conjuncts 各表连接条件
      *
-     * @param leafFromClauses the collection to add all leaf from-clauses to
+     * @param leafFromClauses 收集的基表表名
      */
     private void collectDetails(FromClause fromClause, HashSet<Expression> conjuncts,
             ArrayList<FromClause> leafFromClauses) {
 
+        // 只特殊处理内联
         if (fromClause.getClauseType() == FromClause.ClauseType.JOIN_EXPR && !fromClause.isOuterJoin()) {
-            // This is an inner-join expression. Pull out the conjuncts if
-            // there are any, and then collect details from both children of
-            // the join.
-
+            // 将各个join的连接条件取出放入conjuncts
             FromClause.JoinConditionType condType = fromClause.getConditionType();
-            if (condType != null)
+            if (condType != null){
                 addConjuncts(conjuncts, fromClause.getPreparedJoinExpr());
+            }
 
             collectDetails(fromClause.getLeftChild(), conjuncts, leafFromClauses);
             collectDetails(fromClause.getRightChild(), conjuncts, leafFromClauses);
         } else {
-            // This is either a base table, a derived table (a SELECT subquery),
-            // or an outer join. Add it to the list of leaf FROM-clauses.
+            // 如果他是 base table, subquery或者outer join 就放到叶子列表中
             leafFromClauses.add(fromClause);
         }
     }
@@ -286,24 +274,27 @@ public class DPJoinPlanner implements Planner {
      * @param expr the expression to pull the conjuncts out of
      */
     private void addConjuncts(Collection<Expression> conjuncts, Expression expr) {
-        // If there is no condition, just return without doing anything.
-        if (expr == null)
-            return;
 
-        // If it's an AND expression, add the terms to the set of conjuncts.
-        if (expr instanceof BooleanOperator) {
-            BooleanOperator boolExpr = (BooleanOperator) expr;
-            if (boolExpr.getType() == BooleanOperator.Type.AND_EXPR) {
-                for (int iTerm = 0; iTerm < boolExpr.getNumTerms(); iTerm++)
-                    conjuncts.add(boolExpr.getTerm(iTerm));
-            } else {
-                // The Boolean expression is an OR or NOT, so we can't add the
-                // terms themselves.
-                conjuncts.add(expr);
-            }
-        } else {
-            // The predicate is not a Boolean expression, so just store it.
+        if (expr == null){
+            return;
+        }
+
+        //若不是BooleanOperator则将整个expr放入conjuncts
+        if(!(expr instanceof BooleanOperator)){
             conjuncts.add(expr);
+            return;
+        }
+
+        BooleanOperator boolExpr = (BooleanOperator) expr;
+        //若不是AND则将整个expr放入conjuncts
+        if (boolExpr.getType() != BooleanOperator.Type.AND_EXPR) {
+            conjuncts.add(expr);
+            return;
+        }
+
+        // 若是AND，则将各个term取出放到conjuncts
+        for (int iTerm = 0; iTerm < boolExpr.getNumTerms(); iTerm++){
+            conjuncts.add(boolExpr.getTerm(iTerm));
         }
     }
 
@@ -391,12 +382,10 @@ public class DPJoinPlanner implements Planner {
         case SELECT_SUBQUERY:
 
             if (clauseType == FromClause.ClauseType.SELECT_SUBQUERY) {
-                // This clause is a SQL subquery, so generate a plan from the
-                // subquery and return it.
+                // 构建子查询的执行计划
                 plan = makePlan(fromClause.getSelectClause());
             } else {
-                // This clause is a base-table, so we just generate a file-scan
-                // plan node for the table.
+                // 基表
                 plan = makeSimpleSelect(fromClause.getTableName(), null);
             }
 
@@ -587,23 +576,9 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * This helper function takes a collection of conjuncts that should comprise
-     * a predicate, and creates a predicate for evaluating these conjuncts. The
-     * exact nature of the predicate depends on the conjuncts:
-     * <ul>
-     * <li>If the collection contains only one conjunct, the method simply
-     * returns that one conjunct.</li>
-     * <li>If the collection contains two or more conjuncts, the method returns
-     * a {@link BooleanOperator} that performs an <tt>AND</tt> of all conjuncts.
-     * </li>
-     * <li>If the collection contains <em>no</em> conjuncts then the method
-     * returns <tt>null</tt>.
-     * </ul>
-     *
-     * @param conjuncts the collection of conjuncts to combine into a predicate.
-     *
-     * @return a predicate for evaluating the conjuncts, or <tt>null</tt> if the
-     *         input collection contained no conjuncts.
+     * 将连接条件合并成一个谓词
+     * @param conjuncts 各个表之间连接条件或是where后的限定条件
+     * @return AND连接的谓词
      */
     private Expression makePredicate(Collection<Expression> conjuncts) {
         Expression predicate = null;
@@ -615,73 +590,44 @@ public class DPJoinPlanner implements Planner {
         return predicate;
     }
 
+
     /**
-     * This helper function takes a query plan and a selection predicate, and
-     * adds the predicate to the plan in a reasonably intelligent way.
-     * <p>
-     * If the plan is a subclass of the {@link SelectNode} then the select
-     * node's predicate is updated to include the predicate. Specifically, if
-     * the select node already has a predicate then one of the following occurs:
-     * <ul>
-     * <li>If the select node currently has no predicate, the new predicate is
-     * assigned to the select node.</li>
-     * <li>If the select node has a predicate whose top node is a
-     * {@link BooleanOperator} of type <tt>AND</tt>, this predicate is added as
-     * a new term on that node.</li>
-     * <li>If the select node has some other kind of non-<tt>null</tt> predicate
-     * then this method creates a new top-level <tt>AND</tt> operation that will
-     * combine the two predicates into one.</li>
-     * </ul>
-     * <p>
-     * If the plan is <em>not</em> a subclass of the {@link SelectNode} then a
-     * new {@link SimpleFilterNode} is added above the current plan node, with
-     * the specified predicate.
-     *
-     * @param plan the plan to add the selection predicate to
-     *
-     * @param predicate the selection predicate to add to the plan
+     * 给PlanNode添加谓词，遵循谓词越靠近数据源效率越高
      * 
-     * @return the (possibly new) top plan-node for the plan with the selection
-     *         predicate applied
+     * @param plan 计划节点
+     * @param predicate 谓词，判断tuple是否满足条件
+     * @return 添加谓词后的执行计划
      */
-    private PlanNode addPredicateToPlan(PlanNode plan, Expression predicate) {
-        if (plan instanceof SelectNode) {
-            SelectNode selectNode = (SelectNode) plan;
-
-            if (selectNode.predicate != null) {
-                // There is already an existing predicate. Add this as a
-                // conjunct to the existing predicate.
-                Expression fsPred = selectNode.predicate;
-                boolean handled = false;
-
-                // If the current predicate is an AND operation, just make
-                // the where-expression an additional term.
-                if (fsPred instanceof BooleanOperator) {
-                    BooleanOperator bool = (BooleanOperator) fsPred;
-                    if (bool.getType() == BooleanOperator.Type.AND_EXPR) {
-                        bool.addTerm(predicate);
-                        handled = true;
-                    }
-                }
-
-                if (!handled) {
-                    // Oops, the current file-scan predicate wasn't an AND.
-                    // Create an AND expression instead.
-                    BooleanOperator bool = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
-                    bool.addTerm(fsPred);
-                    bool.addTerm(predicate);
-                    selectNode.predicate = bool;
-                }
-            } else {
-                // Simple - just add where-expression onto the file-scan.
-                selectNode.predicate = predicate;
-            }
-        } else {
-            // The subplan is more complex, so put a filter node above it.
-            plan = new SimpleFilterNode(plan, predicate);
+    public static PlanNode addPredicateToPlan(PlanNode plan, Expression predicate) {
+        if (!(plan instanceof SelectNode)) {
+            // 如果不是SelectNode直接将过滤条件包在外面
+            return new SimpleFilterNode(plan, predicate);
+        }
+        SelectNode selectNode = (SelectNode) plan;
+        // selectNode之前没有谓词，则将谓词下移
+        if (selectNode.predicate == null) {
+            selectNode.predicate = predicate;
+            return selectNode;
         }
 
-        return plan;
+        // 取出已经存在的谓词
+        Expression existsPred = selectNode.predicate;
+
+        // 已有谓词若是AND则将新谓词加入到其term中
+        if (existsPred instanceof BooleanOperator) {
+            BooleanOperator bool = (BooleanOperator) existsPred;
+            if (bool.getType() == BooleanOperator.Type.AND_EXPR) {
+                bool.addTerm(predicate);
+                return selectNode;
+            }
+        }
+
+        // 已有谓词不是AND则创建一个AND，将fsPred和predicate加入到term中
+        BooleanOperator bool = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
+        bool.addTerm(existsPred);
+        bool.addTerm(predicate);
+        selectNode.predicate = bool;
+        return selectNode;
     }
 
     /**
@@ -750,25 +696,13 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * Constructs a simple select plan that reads directly from a table, with an
-     * optional predicate for selecting rows.
-     * <p>
-     * While this method can be used for building up larger <tt>SELECT</tt>
-     * queries, the returned plan is also suitable for use in <tt>UPDATE</tt>
-     * and <tt>DELETE</tt> command evaluation. In these cases, the plan must
-     * only generate tuples of type {@link edu.caltech.nanodb.storage.PageTuple}
-     * , so that the command can modify or delete the actual tuple in the file's
-     * page data.
+     * 构建一个扫描表的执行计划
+     * @param tableName the table that the select will operate against
+     * @param predicate the selection predicate to apply, or <tt>null</tt> if
+     *        all tuples in the table should be returned
      *
-     * @param tableName The name of the table that is being selected from.
-     *
-     * @param predicate An optional selection predicate, or <tt>null</tt> if no
-     *        filtering is desired.
-     *
-     * @return A new plan-node for evaluating the select operation.
-     *
-     * @throws IOException if an error occurs when loading necessary table
-     *         information.
+     * @return FileScanNode
+     * @throws IOException 文件不存在等异常
      */
     public SelectNode makeSimpleSelect(String tableName, Expression predicate) throws IOException {
 

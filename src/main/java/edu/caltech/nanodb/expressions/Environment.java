@@ -111,14 +111,10 @@ public class Environment {
      * <tt>getCurrentTuple(tableName)</tt> is called on the parent environment.
      * If the table name is not recognized, <tt>null</tt> is returned.
      *
+     * @see ColumnValue#evaluate(Environment) 需要通过Environment中的schema和tuple找到对应值
      * @return the current tuple for the specified table name, or <tt>null</tt>
      *         if the specified table is unrecognized in the environment.
      *
-     *         public Tuple getCurrentTuple(String tableName) { Tuple tup =
-     *         currentTuples.get(tableName); if (tup == null && parentEnv !=
-     *         null) tup = parentEnv.getCurrentTuple(tableName);
-     * 
-     *         return tup; }
      */
 
     public Object getColumnValue(ColumnName colName) {

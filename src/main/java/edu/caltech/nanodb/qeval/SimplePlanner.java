@@ -37,79 +37,26 @@ public class SimplePlanner implements Planner {
     private static Logger logger = Logger.getLogger(SimplePlanner.class);
 
     /**
-     * Returns the root of a plan tree suitable for executing the specified
-     * query.
+     * 构建一个简单的执行计划
+     * @param selClause select命令
      *
-     * @param selClause an object describing the query to be performed
-     *
-     * @return a plan tree for executing the specified query
-     *
-     * @throws IOException if an IO error occurs when the planner attempts to
-     *         load schema and indexing information.
+     * @return 执行计划
+     * @throws IOException 在扫描文件时可能会有异常
      */
     public PlanNode makePlan(SelectClause selClause) throws IOException {
 
-        // We want to take a simple SELECT a, b, ... FROM A, B, ... WHERE ...
-        // and turn it into a tree of plan nodes.
-
-        // The most naive approach is to do all the joins on TRUE theta
-        // conditions
-        // and then select out the desired rows and finally project to the
-        // desired schema.
-        // This plan is legal for all such queries, but it is definitely slow.
-
-        PlanNode plan;
-
-        // Create a subplan that generates the relation specified by the FROM
-        // clause. If there are joins in the FROM clause then this will be a
-        // tree of plan-nodes.
         FromClause fromClause = selClause.getFromClause();
-        if (fromClause != null) {
-            plan = makeJoinTree(fromClause);
-        } else {
+        if (fromClause == null) {
             throw new UnsupportedOperationException("NanoDB doesn't yet support SQL queries without a FROM clause!");
         }
 
-        // If we have a WHERE clause, we have two choices. If the current plan
-        // is a simple file-scan then put the predicate on the file-scan.
-        // Otherwise, put a select node above the current plan.
+        // 构造JOIN或是子查询的执行计划
+        PlanNode plan = makeJoinTree(fromClause);
+
+        // 取出过滤的谓词融入到已有的plan中
         Expression whereExpr = selClause.getWhereExpr();
         if (whereExpr != null) {
-            if (plan instanceof FileScanNode) {
-                FileScanNode fileScan = (FileScanNode) plan;
-
-                if (fileScan.predicate != null) {
-                    // There is already an existing predicate. Add this as a
-                    // conjunct to the existing predicate.
-                    Expression pred = fileScan.predicate;
-                    boolean handled = false;
-
-                    // If the current predicate is an AND operation, just make
-                    // the where-expression an additional term.
-                    if (pred instanceof BooleanOperator) {
-                        BooleanOperator bool = (BooleanOperator) pred;
-                        if (bool.getType() == BooleanOperator.Type.AND_EXPR) {
-                            bool.addTerm(whereExpr);
-                            handled = true;
-                        }
-                    }
-
-                    if (!handled) {
-                        // Oops, the current file-scan predicate wasn't an AND.
-                        // Create an AND expression instead.
-                        BooleanOperator bool = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
-                        bool.addTerm(pred);
-                        bool.addTerm(whereExpr);
-                        fileScan.predicate = bool;
-                    }
-                } else {
-                    // Simple - just add where-expression onto the file-scan.
-                    fileScan.predicate = whereExpr;
-                }
-            } else {
-                // The subplan is more complex, so put a filter node above it.
-                plan = new SimpleFilterNode(plan, whereExpr);
-            }
+            DPJoinPlanner.addPredicateToPlan(plan, whereExpr);
         }
 
         // TODO: Grouping/aggregation will go somewhere in here.
