@@ -119,15 +119,11 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * Returns the root of a plan tree suitable for executing the specified
-     * query.
-     *
+     * 为查询语句生成一个执行计划
      * @param selClause an object describing the query to be performed
      *
-     * @return a plan tree for executing the specified query
-     *
-     * @throws java.io.IOException if an IO error occurs when the planner
-     *         attempts to load schema and indexing information.
+     * @return 执行计划
+     * @throws IOException e
      */
     public PlanNode makePlan(SelectClause selClause) throws IOException {
 
@@ -136,7 +132,8 @@ public class DPJoinPlanner implements Planner {
             throw new UnsupportedOperationException("NanoDB doesn't yet support SQL queries without a FROM clause!");
         }
 
-        // If we have a columnstore table, we can create a separate plan for that.
+        // If we have a columnstore table, we can create a separate plan for
+        // that.
         if (fromClause.isBaseTable()) {
             TableFileInfo tableInfo = StorageManager.getInstance().openTable(fromClause.getTableName());
 
@@ -156,12 +153,14 @@ public class DPJoinPlanner implements Planner {
         JoinComponent joinComp = makeJoinPlan(fromClause, whereConjuncts);
         PlanNode plan = joinComp.joinPlan;
 
+        //找出没有用到的谓词，添加到执行计划中
         HashSet<Expression> unusedConjuncts = new HashSet<Expression>(whereConjuncts);
         unusedConjuncts.removeAll(joinComp.conjunctsUsed);
-
         Expression finalPredicate = makePredicate(unusedConjuncts);
-        if (finalPredicate != null)
+        if (finalPredicate != null){
             plan = addPredicateToPlan(plan, finalPredicate);
+        }
+
 
         // TODO: Grouping/aggregation will go somewhere in here.
 
@@ -182,6 +181,13 @@ public class DPJoinPlanner implements Planner {
         return plan;
     }
 
+    /**
+     * 生成一个连接计划
+     * @param fromClause FROM ...
+     * @param extraConjuncts 外界传入的谓词，便于在连接前就过滤
+     * @return 连接计划
+     * @throws IOException
+     */
     private JoinComponent makeJoinPlan(FromClause fromClause, Collection<Expression> extraConjuncts)
             throws IOException {
 
@@ -199,16 +205,10 @@ public class DPJoinPlanner implements Planner {
         if (extraConjuncts != null) {
             conjuncts.addAll(extraConjuncts);
         }
-        //改为read only
+        // 改为read only
         Set<Expression> roConjuncts = Collections.unmodifiableSet(conjuncts);
 
-        // Create a subplan for every single leaf FROM-clause, and prepare the
-        // leaf-plan.
-
         logger.debug("Generating plans for all leaves");
-
-        // Pass an unmodifiable set of the input conjuncts, to keep bugs from
-        // happening...
         ArrayList<JoinComponent> leafComponents = generateLeafJoinComponents(leafFromClauses, roConjuncts);
 
         // Print out the results, for debugging purposes.
@@ -248,7 +248,7 @@ public class DPJoinPlanner implements Planner {
         if (fromClause.getClauseType() == FromClause.ClauseType.JOIN_EXPR && !fromClause.isOuterJoin()) {
             // 将各个join的连接条件取出放入conjuncts
             FromClause.JoinConditionType condType = fromClause.getConditionType();
-            if (condType != null){
+            if (condType != null) {
                 addConjuncts(conjuncts, fromClause.getPreparedJoinExpr());
             }
 
@@ -261,86 +261,65 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * 将expr添加到conjuncts，如果Expression是AND表达式就将其内部的各个term放入到conjuncts中<br/>
-     * This helper method takes a predicate <tt>expr</tt> and stores all of its
-     * conjuncts into the specified collection of conjuncts. Specifically, if
-     * the predicate is a Boolean <tt>AND</tt> operation then each term will
-     * individually be added to the collection of conjuncts. Any other kind of
-     * predicate will be stored as-is into the collection.
-     *
-     * @param conjuncts the collection of conjuncts to add the predicate (or its
-     *        components) to.
-     *
-     * @param expr the expression to pull the conjuncts out of
+     * 将expr对应的谓词添加到conjuncts，如果Expression是AND表达式就将其内部的各个term放入到conjuncts中，
+     * 若不是将整个expression当作谓词
+     * 
+     * @param conjuncts predicate容器
+     * @param expr 待分析的表达式
      */
     private void addConjuncts(Collection<Expression> conjuncts, Expression expr) {
 
-        if (expr == null){
+        if (expr == null) {
             return;
         }
 
-        //若不是BooleanOperator则将整个expr放入conjuncts
-        if(!(expr instanceof BooleanOperator)){
+        // 若不是BooleanOperator则将整个expr放入conjuncts
+        if (!(expr instanceof BooleanOperator)) {
             conjuncts.add(expr);
             return;
         }
 
         BooleanOperator boolExpr = (BooleanOperator) expr;
-        //若不是AND则将整个expr放入conjuncts
+        // 若不是AND则将整个expr放入conjuncts
         if (boolExpr.getType() != BooleanOperator.Type.AND_EXPR) {
             conjuncts.add(expr);
             return;
         }
 
         // 若是AND，则将各个term取出放到conjuncts
-        for (int iTerm = 0; iTerm < boolExpr.getNumTerms(); iTerm++){
+        for (int iTerm = 0; iTerm < boolExpr.getNumTerms(); iTerm++) {
             conjuncts.add(boolExpr.getTerm(iTerm));
         }
     }
 
     /**
-     * This helper method performs the first step of the dynamic programming
-     * process to generate an optimal join plan, by generating a plan for every
-     * leaf from-clause identified from analyzing the query. Leaf plans are
-     * usually very simple; they are built either from base-tables or
-     * <tt>SELECT</tt> subqueries. The most complex detail is that any conjuncts
-     * in the query that can be evaluated solely against a particular leaf
-     * plan-node will be associated with the plan node. <em>This is a
-     * heuristic</em> that usually produces good plans (and certainly will for
-     * the current state of the database), but could easily interfere with
-     * indexes or other plan optimizations.
-     *
-     * @param leafFromClauses the collection of from-clauses found in the query
-     *
-     * @param conjuncts the collection of conjuncts that can be applied at this
-     *        level
-     *
-     * @return a collection of {@link JoinComponent} object containing the plans
-     *         and other details for each leaf from-clause
-     *
-     * @throws IOException if a particular database table couldn't be opened or
-     *         schema loaded, for some reason
+     * 给每个leafFromClause生成一个JoinComponent，生成时注意谓词下推
+     * 
+     * @param leafFromClauses 基表，子查询或是外联的clause
+     * @param conjuncts 可能有用的谓词
+     * @return leafFromClauses对应的JoinComponent
+     * @throws IOException e
      */
     private ArrayList<JoinComponent> generateLeafJoinComponents(Collection<FromClause> leafFromClauses,
             Collection<Expression> conjuncts) throws IOException {
 
-        // Create a subplan for every single leaf FROM-clause, and prepare the
-        // leaf-plan.
-        ArrayList<JoinComponent> leafComponents = new ArrayList<JoinComponent>();
+        ArrayList<JoinComponent> result = new ArrayList<JoinComponent>();
         for (FromClause leafClause : leafFromClauses) {
-            HashSet<Expression> leafConjuncts = new HashSet<Expression>();
 
+            // 将被下移的谓词放入leafConjuncts
+            HashSet<Expression> leafConjuncts = new HashSet<Expression>();
+            // 为leafClause生成leafPlan，主要考虑要让谓词下移
             PlanNode leafPlan = makeLeafPlan(leafClause, conjuncts, leafConjuncts);
 
             JoinComponent leaf = new JoinComponent(leafPlan, leafConjuncts);
-            leafComponents.add(leaf);
+            result.add(leaf);
         }
 
-        return leafComponents;
+        return result;
     }
 
     /**
-     * Constructs a plan tree for evaluating the specified from-clause.
+     * 谓词下推 Constructs a plan tree for evaluating the specified from-clause.
      * Depending on the clause's {@link FromClause#getClauseType type}, the plan
      * tree will comprise varying operations, such as:
      * <ul>
@@ -378,65 +357,65 @@ public class DPJoinPlanner implements Planner {
 
         FromClause.ClauseType clauseType = fromClause.getClauseType();
         switch (clauseType) {
-        case BASE_TABLE:
-        case SELECT_SUBQUERY:
+            case BASE_TABLE:
+            case SELECT_SUBQUERY:
 
-            if (clauseType == FromClause.ClauseType.SELECT_SUBQUERY) {
-                // 构建子查询的执行计划
-                plan = makePlan(fromClause.getSelectClause());
-            } else {
-                // 基表
-                plan = makeSimpleSelect(fromClause.getTableName(), null);
-            }
+                if (clauseType == FromClause.ClauseType.SELECT_SUBQUERY) {
+                    // 构建子查询的执行计划
+                    plan = makePlan(fromClause.getSelectClause());
+                } else {
+                    // 基表
+                    plan = makeSimpleSelect(fromClause.getTableName(), null);
+                }
 
-            // If the FROM-clause renames the result, apply the renaming here.
-            if (fromClause.isRenamed())
-                plan = new RenameNode(plan, fromClause.getResultName());
+                // 如果有别名
+                if (fromClause.isRenamed()) {
+                    plan = new RenameNode(plan, fromClause.getResultName());
+                }
 
-            plan.prepare();
-            Schema schema = plan.getSchema();
+                // 获取此执行节点的schema
+                plan.prepare();
+                Schema schema = plan.getSchema();
 
-            // If possible, construct a predicate for this leaf node by adding
-            // conjuncts that are specific to only this leaf plan-node.
-            //
-            // Do not remove those conjuncts from the set of unused conjuncts.
+                // 将conjuncts里已在schema中定义了的谓词移动到leafConjuncts
+                findExprsUsingSchemas(conjuncts, false, leafConjuncts, schema);
+                // 将这些谓词合并成一个
+                Expression leafPredicate = makePredicate(leafConjuncts);
+                if (leafPredicate != null) {
+                    // 谓词下移
+                    plan = addPredicateToPlan(plan, leafPredicate);
+                }
+                break;
 
-            findExprsUsingSchemas(conjuncts, false, leafConjuncts, schema);
+            case JOIN_EXPR:
+                if (!fromClause.isOuterJoin()) {
+                    throw new IllegalArgumentException("This method only supports outer joins.  Got " + fromClause);
+                }
 
-            Expression leafPredicate = makePredicate(leafConjuncts);
-            if (leafPredicate != null) {
-                plan = addPredicateToPlan(plan, leafPredicate);
-            }
+                // 处理左连接
+                Collection<Expression> childConjuncts = conjuncts;
+                if (fromClause.hasOuterJoinOnRight()) {
+                    childConjuncts = null;
+                }
+                JoinComponent leftComp = makeJoinPlan(fromClause.getLeftChild(), childConjuncts);
 
-            break;
+                // 处理右连接
+                childConjuncts = conjuncts;
+                if (fromClause.hasOuterJoinOnLeft()) {
+                    childConjuncts = null;
+                }
+                JoinComponent rightComp = makeJoinPlan(fromClause.getRightChild(), childConjuncts);
 
-        case JOIN_EXPR:
-            if (!fromClause.isOuterJoin()) {
-                throw new IllegalArgumentException("This method only supports outer joins.  Got " + fromClause);
-            }
+                plan = new NestedLoopsJoinNode(leftComp.joinPlan, rightComp.joinPlan, fromClause.getJoinType(),
+                        fromClause.getPreparedJoinExpr());
 
-            Collection<Expression> childConjuncts;
+                leafConjuncts.addAll(leftComp.conjunctsUsed);
+                leafConjuncts.addAll(rightComp.conjunctsUsed);
 
-            childConjuncts = conjuncts;
-            if (fromClause.hasOuterJoinOnRight())
-                childConjuncts = null;
-            JoinComponent leftComp = makeJoinPlan(fromClause.getLeftChild(), childConjuncts);
+                break;
 
-            childConjuncts = conjuncts;
-            if (fromClause.hasOuterJoinOnLeft())
-                childConjuncts = null;
-            JoinComponent rightComp = makeJoinPlan(fromClause.getRightChild(), childConjuncts);
-
-            plan = new NestedLoopsJoinNode(leftComp.joinPlan, rightComp.joinPlan, fromClause.getJoinType(),
-                    fromClause.getPreparedJoinExpr());
-
-            leafConjuncts.addAll(leftComp.conjunctsUsed);
-            leafConjuncts.addAll(rightComp.conjunctsUsed);
-
-            break;
-
-        default:
-            throw new IllegalArgumentException("Unrecognized from-clause type:  " + fromClause.getClauseType());
+            default:
+                throw new IllegalArgumentException("Unrecognized from-clause type:  " + fromClause.getClauseType());
         }
 
         plan.prepare();
@@ -478,8 +457,9 @@ public class DPJoinPlanner implements Planner {
         HashMap<HashSet<PlanNode>, JoinComponent> joinPlans = new HashMap<HashSet<PlanNode>, JoinComponent>();
 
         // Initially populate joinPlans with just the N leaf plans.
-        for (JoinComponent leaf : leafComponents)
+        for (JoinComponent leaf : leafComponents) {
             joinPlans.put(leaf.leavesUsed, leaf);
+        }
 
         while (joinPlans.size() > 1) {
             // This is the set of "next plans" we will generate! Plans only get
@@ -502,8 +482,9 @@ public class DPJoinPlanner implements Planner {
                     PlanNode leafPlan = leaf.joinPlan;
 
                     // If the leaf-plan already appears in this join, skip it!
-                    if (prevLeavesUsed.contains(leafPlan))
+                    if (prevLeavesUsed.contains(leafPlan)) {
                         continue;
+                    }
 
                     // The new plan we generate will involve everything from the
                     // old plan, plus the leaf-plan we are joining in.
@@ -577,6 +558,7 @@ public class DPJoinPlanner implements Planner {
 
     /**
      * 将连接条件合并成一个谓词
+     * 
      * @param conjuncts 各个表之间连接条件或是where后的限定条件
      * @return AND连接的谓词
      */
@@ -589,7 +571,6 @@ public class DPJoinPlanner implements Planner {
         }
         return predicate;
     }
-
 
     /**
      * 给PlanNode添加谓词，遵循谓词越靠近数据源效率越高
@@ -631,46 +612,30 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * This helper method takes a collection of expressions, and finds those
-     * expressions that can be evaluated solely against the provided set of one
-     * or more schemas. In other words, if an expression doesn't refer to any
-     * symbols outside of the specified set of schemas, then it will be included
-     * in the result collection.
-     *
-     * @param srcExprs the input collection of expressions to check against the
-     *        provided schemas.
-     *
-     * @param remove if <tt>true</tt>, the matching expressions will be removed
-     *        from the <tt>srcExprs</tt> collection. Otherwise, the
-     *        <tt>srcExprs</tt> collection is left unchanged.
-     *
-     * @param dstExprs the collection to add the matching expressions to. This
-     *        collection is <tt>not</tt> cleared by this method; any previous
-     *        contents in the collection will be left unchanged.
-     *
-     * @param schemas a collection of one or more schemas to check the input
-     *        expressions against. If an expression can be evaluated solely
-     *        against these schemas then it will be added to the results.
+     * 对于srcExprs中的Expression，若其所有columnName在schema中能找到定义，就将其移动到dstExprs中
+     * 
+     * @param srcExprs expression集合
+     * @param remove true则移动时会删除srcExprs中的元素
+     * @param dstExprs expression集合
+     * @param schemas schema数组
      */
     public static void findExprsUsingSchemas(Collection<Expression> srcExprs, boolean remove,
             Collection<Expression> dstExprs, Schema... schemas) {
 
-        ArrayList<ColumnName> symbols = new ArrayList<ColumnName>();
+        List<ColumnName> columnNames = new ArrayList<ColumnName>();
 
-        Iterator<Expression> termIter = srcExprs.iterator();
-        while (termIter.hasNext()) {
-            Expression term = termIter.next();
+        Iterator<Expression> expItr = srcExprs.iterator();
+        while (expItr.hasNext()) {
+            Expression expr = expItr.next();
 
-            // Read all symbols from this term.
-            symbols.clear();
-            term.getAllSymbols(symbols);
+            // 获取expression中所有columnNames
+            columnNames.clear();
+            expr.getAllSymbols(columnNames);
 
-            // If *all* of the symbols in the term reference at least one of the
-            // provided schemas, add it to the results (removing from this
-            // operator, if so directed by caller).
+            // 若此expression所有column都能在schema中找到定义则移动到dstExprs
             boolean allRef = true;
-            for (ColumnName colName : symbols) {
-                // Determine if *this* symbol references at least one schema.
+            for (ColumnName colName : columnNames) {
+                // 查看当前colName是否在schemas中定义
                 boolean ref = false;
                 for (Schema schema : schemas) {
                     if (schema.getColumnIndex(colName) != -1) {
@@ -679,24 +644,26 @@ public class DPJoinPlanner implements Planner {
                     }
                 }
 
-                // If this symbol doesn't reference any of the schemas then
-                // this term doesn't qualify.
+                // 只要有一个colName没有在schema中找到定义,当前expression就不能移动
                 if (!ref) {
                     allRef = false;
                     break;
                 }
             }
 
+            // 若所有term都能找到定义则移动到dstExprs中
             if (allRef) {
-                dstExprs.add(term);
-                if (remove)
-                    termIter.remove();
+                dstExprs.add(expr);
+                if (remove) {
+                    expItr.remove();
+                }
             }
         }
     }
 
     /**
      * 构建一个扫描表的执行计划
+     * 
      * @param tableName the table that the select will operate against
      * @param predicate the selection predicate to apply, or <tt>null</tt> if
      *        all tuples in the table should be returned
