@@ -403,130 +403,55 @@ public class DPJoinPlanner implements Planner {
         return plan;
     }
 
-    /**
-     * This helper method builds up a full join-plan using a dynamic programming
-     * approach. The implementation maintains a collection of optimal
-     * intermediate plans that join <em>n</em> of the leaf nodes, each with its
-     * own associated cost, and then uses that collection to generate a new
-     * collection of optimal intermediate plans that join <em>n+1</em> of the
-     * leaf nodes. This process completes when all leaf plans are joined
-     * together; there will be <em>one</em> plan, and it will be the optimal
-     * join plan (as far as our limited estimates can determine, anyway).
-     *
-     * @param leafComponents the collection of leaf join-components, generated
-     *        by the {@link #generateLeafJoinComponents} method.
-     *
-     * @param conjuncts the collection of all conjuncts found in the query
-     *
-     * @return a single {@link JoinComponent} object that joins all leaf
-     *         components together in an optimal way.
-     */
 
     /**
-     * 根据已有的叶子节点和谓词构造一个最优(cost最小)的JoinComponent
+     * 根据已有的叶子节点和谓词构造一个最优(cost最小)的JoinComponent<br/>
+     * 动态规划可解决最短路径问题。N个节点对应一个最优解集合，在此基础上生成N+1节点的最优解集合。
+     *
+     * A,B,C的最优连接方式<br/>
+     * 1. AB连接有A JOIN B和B JOIN A两种方式，A和B生成一个最优解A-B,同理BC生成B-C,AC生成A-C<br/>
+     * 2. A-B循环连接A,B,C,发现只有A-B-C有效（在A-B连接B时，会发现B已在连接中了）<br/>
+     * 同理生成B-C-A, A-C-B,此时会从其中找出cost最小的连接。
+     *
      * 
-     * @param leafComponents {@link #generateLeafJoinComponents}
-     * @param conjuncts
-     * @return
+     * @param leafComponents 对leaf clause的包装，{@link #generateLeafJoinComponents}
+     * @param conjuncts 谓词
+     * @return 最优连结方式
      */
     private JoinComponent generateOptimalJoin(List<JoinComponent> leafComponents, Set<Expression> conjuncts) {
 
-        // This object maps a collection of leaf-plans (represented as a
-        // hash-set) to the optimal join-plan for that collection of leaf plans.
-        //
-        // This collection starts out only containing the leaf plans themselves,
-        // and on each iteration of the loop below, join-plans are grown by one
-        // leaf. For example:
-        // * In the first iteration, all plans joining 2 leaves are created.
-        // * In the second iteration, all plans joining 3 leaves are created.
-        // * etc.
-        // At the end, the collection will contain ONE entry, which is the
-        // optimal way to join all N leaves. Go Go Gadget Dynamic Programming!
         Map<Set<PlanNode>, JoinComponent> joinPlans = new HashMap();
 
-        // Initially populate joinPlans with just the N leaf plans.
+        // 用叶子节点进行初始化
         for (JoinComponent leaf : leafComponents) {
             joinPlans.put(leaf.leavesUsed, leaf);
         }
 
+        //一致迭代直到最后形成一个最优解
         while (joinPlans.size() > 1) {
-            // This is the set of "next plans" we will generate! Plans only get
-            // stored if they are the first plan that joins together the
-            // specified leaves, or if they are better than the current plan.
+            // 每次迭代的结果放在此处
+            //Map<包含的叶子元素集, JoinComponent>，叶子元素集对应的JoinComponent一定是这些叶子元素的最优连接
             Map<Set<PlanNode>, JoinComponent> nextJoinPlans = new HashMap();
 
-            // Iterate over each plan in the current set. Those plans already
-            // join n leaf-plans together. We will generate more plans that
-            // join n+1 leaves together.
+            // 迭代前次的连接结果
             for (JoinComponent prevComponent : joinPlans.values()) {
-                Set<PlanNode> prevLeavesUsed = prevComponent.leavesUsed;
-                PlanNode prevPlan = prevComponent.joinPlan;
-                Set<Expression> prevConjunctsUsed = prevComponent.conjunctsUsed;
-                Schema prevSchema = prevPlan.getSchema();
 
-                // Iterate over the leaf plans; try to add each leaf-plan to
-                // this join-plan, to produce new plans that join n+1 leaves.
-                for (JoinComponent leaf : leafComponents) {
-                    PlanNode leafPlan = leaf.joinPlan;
+                // 在已形成的最优解prevComponent上尝试添加子节点
+                List<JoinComponent> results = tryAppendLeaf(prevComponent, leafComponents, conjuncts);
 
-                    // If the leaf-plan already appears in this join, skip it!
-                    if (prevLeavesUsed.contains(leafPlan)) {
-                        continue;
-                    }
-
-                    // The new plan we generate will involve everything from the
-                    // old plan, plus the leaf-plan we are joining in.
-                    // Of course, we could join in different orders, so consider
-                    // both join-orderings.
-
-                    HashSet<PlanNode> newLeavesUsed = new HashSet<PlanNode>(prevLeavesUsed);
-                    newLeavesUsed.add(leafPlan);
-
-                    // Compute the join predicate between these two subplans.
-                    // (We presume that the subplans have both been prepared.)
-
-                    Schema leafSchema = leafPlan.getSchema();
-
-                    // Find the conjuncts that reference both subplans' schemas.
-                    // Also remove those predicates from the original set of all
-                    // conjuncts.
-
-                    // These are the conjuncts already used by the subplans.
-                    HashSet<Expression> subplanConjuncts = new HashSet<Expression>(prevConjunctsUsed);
-                    subplanConjuncts.addAll(leaf.conjunctsUsed);
-
-                    // These are the conjuncts still unused for this join pair.
-                    HashSet<Expression> unusedConjuncts = new HashSet<Expression>(conjuncts);
-                    unusedConjuncts.removeAll(subplanConjuncts);
-
-                    // These are the conjuncts relevant for the join pair.
-                    HashSet<Expression> joinConjuncts = new HashSet<Expression>();
-                    findExprsUsingSchemas(unusedConjuncts, true, joinConjuncts, leafSchema, prevSchema);
-
-                    Expression joinPredicate = makePredicate(joinConjuncts);
-
-                    // Join the leaf-plan with the previous optimal plan, and
-                    // see if it's better than whatever we currently have.
-                    // We only build LEFT-DEEP join plans; the leaf node goes
-                    // on the right!
-
-                    NestedLoopsJoinNode newJoinPlan = new NestedLoopsJoinNode(prevPlan, leafPlan, JoinType.INNER,
-                            joinPredicate);
-                    newJoinPlan.prepare();
-                    PlanCost newJoinCost = newJoinPlan.getCost();
-
-                    joinConjuncts.addAll(subplanConjuncts);
-                    JoinComponent joinComponent = new JoinComponent(newJoinPlan, newLeavesUsed, joinConjuncts);
-
-                    JoinComponent currentBest = nextJoinPlans.get(newLeavesUsed);
+                for(JoinComponent component: results){
+                    //找出相同叶子元素对应的最优连接
+                    Set<PlanNode> leaves = component.leavesUsed;
+                    JoinComponent currentBest = nextJoinPlans.get(leaves);
                     if (currentBest == null) {
                         logger.info("Setting current best-plan.");
-                        nextJoinPlans.put(newLeavesUsed, joinComponent);
+                        nextJoinPlans.put(leaves, component);
                     } else {
                         PlanCost bestCost = currentBest.joinPlan.getCost();
-                        if (newJoinCost.cpuCost < bestCost.cpuCost) {
+                        // 新的连接cost更小则替换
+                        if (component.joinPlan.getCost().cpuCost < bestCost.cpuCost) {
                             logger.info("Replacing current best-plan with new plan!");
-                            nextJoinPlans.put(newLeavesUsed, joinComponent);
+                            nextJoinPlans.put(leaves, component);
                         }
                     }
                 }
@@ -537,11 +462,62 @@ public class DPJoinPlanner implements Planner {
             joinPlans = nextJoinPlans;
         }
 
-        // At this point, the set of join plans should only contain one plan,
-        // and it should be the optimal plan.
-
+        // 到此处应该为唯一最优解
         assert joinPlans.size() == 1 : "There can be only one optimal join plan!";
         return joinPlans.values().iterator().next();
+    }
+
+    /**
+     * 尝试着在最优连接prevComponent继续添加叶子元素
+     * @param prevComponent 前一次形成的最优连接
+     * @param leafComponents 叶子元素
+     * @param conjuncts 谓词
+     * @return 多连一个leaf后的JoinComponent
+     */
+    private List<JoinComponent> tryAppendLeaf(JoinComponent prevComponent, List<JoinComponent> leafComponents, Set<Expression> conjuncts){
+        //取出前次迭代的一个结果，某些元素的最优连接
+        Set<PlanNode> prevLeavesUsed = prevComponent.leavesUsed;
+        PlanNode prevPlan = prevComponent.joinPlan;
+        Set<Expression> prevConjunctsUsed = prevComponent.conjunctsUsed;
+        Schema prevSchema = prevPlan.getSchema();
+
+        List<JoinComponent> results = new ArrayList<>();
+        // 给最优解再连一个节点
+        for (JoinComponent leaf : leafComponents) {
+            PlanNode leafPlan = leaf.joinPlan;
+
+            // 需要增加的元素，在最优解中已包含了，就跳过
+            if (prevLeavesUsed.contains(leafPlan)) {
+                continue;
+            }
+
+            // 加入新叶子节点
+            HashSet<PlanNode> newLeavesUsed = new HashSet<PlanNode>(prevLeavesUsed);
+            newLeavesUsed.add(leafPlan);
+            Schema leafSchema = leafPlan.getSchema();
+
+            // 加入此叶子节点对应的谓词
+            HashSet<Expression> subplanConjuncts = new HashSet<Expression>(prevConjunctsUsed);
+            subplanConjuncts.addAll(leaf.conjunctsUsed);
+
+            // 找出没用到的谓词，用作连接谓词
+            HashSet<Expression> unusedConjuncts = new HashSet<Expression>(conjuncts);
+            unusedConjuncts.removeAll(subplanConjuncts);
+            HashSet<Expression> joinConjuncts = new HashSet<Expression>();
+            findExprsUsingSchemas(unusedConjuncts, true, joinConjuncts, leafSchema, prevSchema);
+
+            Expression joinPredicate = makePredicate(joinConjuncts);
+
+            // 将leafPlan连接到已有最优节点prevPlan，注意此处始终为prevPlan left join leafPlan
+            NestedLoopsJoinNode newJoinPlan = new NestedLoopsJoinNode(prevPlan, leafPlan, JoinType.INNER,
+                    joinPredicate);
+            newJoinPlan.prepare();
+
+            joinConjuncts.addAll(subplanConjuncts);
+            JoinComponent joinComponent = new JoinComponent(newJoinPlan, newLeavesUsed, joinConjuncts);
+            results.add(joinComponent);
+        }
+        return results;
     }
 
     /**
