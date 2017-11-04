@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
@@ -45,48 +46,33 @@ public class DPJoinPlanner implements Planner {
     private static Logger logger = Logger.getLogger(DPJoinPlanner.class);
 
     /**
-     * This helper class is used to keep track of one "join component" in the
-     * dynamic programming algorithm. A join component is simply a query plan
-     * for joining one or more leaves of the query.
-     * <p>
-     * In this context, a "leaf" may either be a base table or a subquery in the
-     * <tt>FROM</tt>-clause of the query. However, the planner will attempt to
-     * push conjuncts down the plan as far as possible, so even if a leaf is a
-     * base table, the plan may be a bit more complex than just a single
-     * file-scan.
+     * 一个JoinComponent就是一个连接1个或者多个叶子的query plan。<br/>
+     * leaf是基表或者是FROM子句里的subquery。<br/>
+     * Planner尽可能的下推谓词
      */
     private static class JoinComponent {
+
         /**
-         * This is the join plan itself, that joins together all leaves
-         * specified in the {@link #leavesUsed} field.
+         * 将多个叶子{@link #leavesUsed}连接在一起的PlanNode
          */
         public PlanNode joinPlan;
 
         /**
-         * This field specifies the collection of leaf-plans that are joined by
-         * the plan in this join-component.
+         * 用于生成{@link #joinPlan}的叶子
          */
-        public HashSet<PlanNode> leavesUsed;
+        public Set<PlanNode> leavesUsed;
 
         /**
-         * This field specifies the collection of all conjuncts use by this join
-         * plan. It allows us to easily determine what join conjuncts still
-         * remain to be incorporated into the query.
+         * 生成{@link #joinPlan}用到的谓词
          */
-        public HashSet<Expression> conjunctsUsed;
+        public Set<Expression> conjunctsUsed;
 
         /**
-         * Constructs a new instance for a <em>leaf node</em>. It should not be
-         * used for join-plans that join together two or more leaves. This
-         * constructor simply adds the leaf-plan into the {@link #leavesUsed}
-         * collection.
-         *
-         * @param leafPlan the query plan for this leaf of the query.
-         *
-         * @param conjunctsUsed the set of conjuncts used by the leaf plan. This
-         *        may be an empty set if no conjuncts apply solely to this leaf,
-         *        or it may be nonempty if some conjuncts apply solely to this
-         *        leaf.
+         * 此构造器只是简单的将leaf node包装成一个JoinComponent<br/>
+         * 它并不能将多个叶子连接成一个join-plan
+         * 
+         * @param leafPlan 叶子节点，基表或者是FROM子句里的subquery
+         * @param conjunctsUsed 用到的谓词
          */
         public JoinComponent(PlanNode leafPlan, HashSet<Expression> conjunctsUsed) {
             leavesUsed = new HashSet<PlanNode>();
@@ -98,18 +84,11 @@ public class DPJoinPlanner implements Planner {
         }
 
         /**
-         * Constructs a new instance for a <em>non-leaf node</em>. It should not
-         * be used for leaf plans!
-         *
-         * @param joinPlan the query plan that joins together all leaves
-         *        specified in the <tt>leavesUsed</tt> argument.
-         *
-         * @param leavesUsed the set of two or more leaf plans that are joined
-         *        together by the join plan.
-         *
-         * @param conjunctsUsed the set of conjuncts used by the join plan.
-         *        Obviously, it is expected that all conjuncts specified here
-         *        can actually be evaluated against the join plan.
+         * 构造一个<em>non-leaf node</em>的JoinComponent，通过一个Join Plan将多个叶子连接起来。
+         * 
+         * @param joinPlan 将leavesUsed中的叶子连接起来的Join Plan
+         * @param leavesUsed 被连接的叶子
+         * @param conjunctsUsed 添加在joinPlan里的谓词
          */
         public JoinComponent(PlanNode joinPlan, HashSet<PlanNode> leavesUsed, HashSet<Expression> conjunctsUsed) {
             this.joinPlan = joinPlan;
@@ -120,6 +99,7 @@ public class DPJoinPlanner implements Planner {
 
     /**
      * 为查询语句生成一个执行计划
+     * 
      * @param selClause an object describing the query to be performed
      *
      * @return 执行计划
@@ -153,14 +133,13 @@ public class DPJoinPlanner implements Planner {
         JoinComponent joinComp = makeJoinPlan(fromClause, whereConjuncts);
         PlanNode plan = joinComp.joinPlan;
 
-        //找出没有用到的谓词，添加到执行计划中
+        // 找出没有用到的谓词，添加到执行计划中
         HashSet<Expression> unusedConjuncts = new HashSet<Expression>(whereConjuncts);
         unusedConjuncts.removeAll(joinComp.conjunctsUsed);
         Expression finalPredicate = makePredicate(unusedConjuncts);
-        if (finalPredicate != null){
+        if (finalPredicate != null) {
             plan = addPredicateToPlan(plan, finalPredicate);
         }
-
 
         // TODO: Grouping/aggregation will go somewhere in here.
 
@@ -183,6 +162,7 @@ public class DPJoinPlanner implements Planner {
 
     /**
      * 生成一个连接计划
+     * 
      * @param fromClause FROM ...
      * @param extraConjuncts 外界传入的谓词，便于在连接前就过滤
      * @return 连接计划
@@ -209,7 +189,7 @@ public class DPJoinPlanner implements Planner {
         Set<Expression> roConjuncts = Collections.unmodifiableSet(conjuncts);
 
         logger.debug("Generating plans for all leaves");
-        ArrayList<JoinComponent> leafComponents = generateLeafJoinComponents(leafFromClauses, roConjuncts);
+        List<JoinComponent> leafComponents = generateLeafJoinComponents(leafFromClauses, roConjuncts);
 
         // Print out the results, for debugging purposes.
         if (logger.isDebugEnabled()) {
@@ -293,14 +273,14 @@ public class DPJoinPlanner implements Planner {
     }
 
     /**
-     * 给每个leafFromClause生成一个JoinComponent，生成时注意谓词下推
+     * 将leafFromClause转换成JoinComponent，生成时注意谓词下推
      * 
      * @param leafFromClauses 基表，子查询或是外联的clause
      * @param conjuncts 可能有用的谓词
      * @return leafFromClauses对应的JoinComponent
      * @throws IOException e
      */
-    private ArrayList<JoinComponent> generateLeafJoinComponents(Collection<FromClause> leafFromClauses,
+    private List<JoinComponent> generateLeafJoinComponents(Collection<FromClause> leafFromClauses,
             Collection<Expression> conjuncts) throws IOException {
 
         ArrayList<JoinComponent> result = new ArrayList<JoinComponent>();
@@ -441,7 +421,15 @@ public class DPJoinPlanner implements Planner {
      * @return a single {@link JoinComponent} object that joins all leaf
      *         components together in an optimal way.
      */
-    private JoinComponent generateOptimalJoin(ArrayList<JoinComponent> leafComponents, Set<Expression> conjuncts) {
+
+    /**
+     * 根据已有的叶子节点和谓词构造一个最优(cost最小)的JoinComponent
+     * 
+     * @param leafComponents {@link #generateLeafJoinComponents}
+     * @param conjuncts
+     * @return
+     */
+    private JoinComponent generateOptimalJoin(List<JoinComponent> leafComponents, Set<Expression> conjuncts) {
 
         // This object maps a collection of leaf-plans (represented as a
         // hash-set) to the optimal join-plan for that collection of leaf plans.
@@ -454,7 +442,7 @@ public class DPJoinPlanner implements Planner {
         // * etc.
         // At the end, the collection will contain ONE entry, which is the
         // optimal way to join all N leaves. Go Go Gadget Dynamic Programming!
-        HashMap<HashSet<PlanNode>, JoinComponent> joinPlans = new HashMap<HashSet<PlanNode>, JoinComponent>();
+        Map<Set<PlanNode>, JoinComponent> joinPlans = new HashMap();
 
         // Initially populate joinPlans with just the N leaf plans.
         for (JoinComponent leaf : leafComponents) {
@@ -465,15 +453,15 @@ public class DPJoinPlanner implements Planner {
             // This is the set of "next plans" we will generate! Plans only get
             // stored if they are the first plan that joins together the
             // specified leaves, or if they are better than the current plan.
-            HashMap<HashSet<PlanNode>, JoinComponent> nextJoinPlans = new HashMap<HashSet<PlanNode>, JoinComponent>();
+            Map<Set<PlanNode>, JoinComponent> nextJoinPlans = new HashMap();
 
             // Iterate over each plan in the current set. Those plans already
             // join n leaf-plans together. We will generate more plans that
             // join n+1 leaves together.
             for (JoinComponent prevComponent : joinPlans.values()) {
-                HashSet<PlanNode> prevLeavesUsed = prevComponent.leavesUsed;
+                Set<PlanNode> prevLeavesUsed = prevComponent.leavesUsed;
                 PlanNode prevPlan = prevComponent.joinPlan;
-                HashSet<Expression> prevConjunctsUsed = prevComponent.conjunctsUsed;
+                Set<Expression> prevConjunctsUsed = prevComponent.conjunctsUsed;
                 Schema prevSchema = prevPlan.getSchema();
 
                 // Iterate over the leaf plans; try to add each leaf-plan to
