@@ -147,18 +147,20 @@ undo:修改前的数据
 
 redo:修改后的数据
 
+prevFileEndOffset：前一个WAL结尾的offset
+
 ```
-|    1B  |       1B     |   4B    |
-|FileType|encodePageSize|---------|
+|    1B  |       1B     |         4B      |
+|FileType|encodePageSize|prevFileEndOffset|
 
 |    1B    | 4B  |    1B    |
 |WALRecType|txnId|WALRecType|
-
-|    1B    | 4B  |      2B     |      4B     | x B      |  2B  |2B|
-|WALRecType|txnId|prevLSNFileNo|prevLSNOffset|DBFileName|PageNo|-1|
-
-| 2B  | 2B | xB | xB |
-|index|size|undo|redo|
+注意start txn是没有preLSN的
+|    1B    | 4B  |      2B     |      4B     |    x B   |  2B  |    2B     |
+|WALRecType|txnId|prevLSNFileNo|prevLSNOffset|DBFileName|PageNo|numSegments|
+数据段内容
+| 2B  | 2B |        xB       | 2B  | 2B |        xB       |
+|index|size|undo or redo data|index|size|undo or redo data|
 ```
 
 

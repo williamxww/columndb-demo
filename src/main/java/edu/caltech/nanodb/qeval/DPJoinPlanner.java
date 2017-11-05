@@ -372,14 +372,14 @@ public class DPJoinPlanner implements Planner {
                     throw new IllegalArgumentException("This method only supports outer joins.  Got " + fromClause);
                 }
 
-                // 处理左连接
+                // 如果是左外连，左表不能过滤，对右表使用谓词进行过滤
+                // 如果是右外连，右表不能过滤，对左表使用谓词进行过滤
                 Collection<Expression> childConjuncts = conjuncts;
                 if (fromClause.hasOuterJoinOnRight()) {
                     childConjuncts = null;
                 }
                 JoinComponent leftComp = makeJoinPlan(fromClause.getLeftChild(), childConjuncts);
 
-                // 处理右连接
                 childConjuncts = conjuncts;
                 if (fromClause.hasOuterJoinOnLeft()) {
                     childConjuncts = null;
@@ -402,7 +402,6 @@ public class DPJoinPlanner implements Planner {
 
         return plan;
     }
-
 
     /**
      * 根据已有的叶子节点和谓词构造一个最优(cost最小)的JoinComponent<br/>
@@ -427,10 +426,10 @@ public class DPJoinPlanner implements Planner {
             joinPlans.put(leaf.leavesUsed, leaf);
         }
 
-        //一致迭代直到最后形成一个最优解
+        // 一致迭代直到最后形成一个最优解
         while (joinPlans.size() > 1) {
             // 每次迭代的结果放在此处
-            //Map<包含的叶子元素集, JoinComponent>，叶子元素集对应的JoinComponent一定是这些叶子元素的最优连接
+            // Map<包含的叶子元素集, JoinComponent>，叶子元素集对应的JoinComponent一定是这些叶子元素的最优连接
             Map<Set<PlanNode>, JoinComponent> nextJoinPlans = new HashMap();
 
             // 迭代前次的连接结果
@@ -439,8 +438,8 @@ public class DPJoinPlanner implements Planner {
                 // 在已形成的最优解prevComponent上尝试添加子节点
                 List<JoinComponent> results = tryAppendLeaf(prevComponent, leafComponents, conjuncts);
 
-                for(JoinComponent component: results){
-                    //找出相同叶子元素对应的最优连接
+                for (JoinComponent component : results) {
+                    // 找出相同叶子元素对应的最优连接
                     Set<PlanNode> leaves = component.leavesUsed;
                     JoinComponent currentBest = nextJoinPlans.get(leaves);
                     if (currentBest == null) {
@@ -469,13 +468,15 @@ public class DPJoinPlanner implements Planner {
 
     /**
      * 尝试着在最优连接prevComponent继续添加叶子元素
+     * 
      * @param prevComponent 前一次形成的最优连接
      * @param leafComponents 叶子元素
      * @param conjuncts 谓词
      * @return 多连一个leaf后的JoinComponent
      */
-    private List<JoinComponent> tryAppendLeaf(JoinComponent prevComponent, List<JoinComponent> leafComponents, Set<Expression> conjuncts){
-        //取出前次迭代的一个结果，某些元素的最优连接
+    private List<JoinComponent> tryAppendLeaf(JoinComponent prevComponent, List<JoinComponent> leafComponents,
+            Set<Expression> conjuncts) {
+        // 取出前次迭代的一个结果，某些元素的最优连接
         Set<PlanNode> prevLeavesUsed = prevComponent.leavesUsed;
         PlanNode prevPlan = prevComponent.joinPlan;
         Set<Expression> prevConjunctsUsed = prevComponent.conjunctsUsed;

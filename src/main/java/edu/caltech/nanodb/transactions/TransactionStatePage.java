@@ -27,10 +27,10 @@ import edu.caltech.nanodb.storage.writeahead.LogSequenceNumber;
  *
  * <pre>
  *  此page里存放下一个事务号，恢复时的起始LSN和写时的下一个LSN地址。
- * -------------------------------------------------------------------------------------------
- * |2 bytes|  4 bytes    |2 bytes          |  4 bytes       |2 bytes         |  4 bytes      |
- * |   ??  | NEXT_TXN_ID |FIRST_LSN_FILENUM|FIRST_LSN_OFFSET|NEXT_LSN_FILENUM|NEXT_LSN_OFFSET|
- * -------------------------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------------------------------------
+ * |1 byte  |     1 byte   |  4 bytes    |2 bytes          |  4 bytes       |2 bytes         |  4 bytes      |
+ * |FileType|encodePageSize| NEXT_TXN_ID |FIRST_LSN_FILENUM|FIRST_LSN_OFFSET|NEXT_LSN_FILENUM|NEXT_LSN_OFFSET|
+ * ----------------------------------------------------------------------------------------------------------
  * </pre>
  *
  */

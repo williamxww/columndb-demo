@@ -1,17 +1,14 @@
-package edu.caltech.test.nanodb.storage;
+package edu.caltech.nanodb.storage;
 
 import java.io.IOException;
 
-import edu.caltech.nanodb.storage.*;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
  * This test class exercises the functionality of the
- * {@link edu.caltech.nanodb.storage.DBPage} class.
+ * {@link DBPage} class.
  **/
 public class TestDBPage extends StorageTestCase {
 

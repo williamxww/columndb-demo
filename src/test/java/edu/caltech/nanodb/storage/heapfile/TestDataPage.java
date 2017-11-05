@@ -1,20 +1,17 @@
-package edu.caltech.test.nanodb.storage.heapfile;
+package edu.caltech.nanodb.storage.heapfile;
 
 import java.io.IOException;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import edu.caltech.nanodb.storage.DBFile;
 import edu.caltech.nanodb.storage.DBFileType;
 import edu.caltech.nanodb.storage.DBPage;
 import edu.caltech.nanodb.storage.FileManager;
-
-import edu.caltech.nanodb.storage.heapfile.DataPage;
-
-import edu.caltech.test.nanodb.storage.StorageTestCase;
+import edu.caltech.nanodb.storage.StorageTestCase;
 import edu.caltech.test.nanodb.util.TestUtil;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
 
 /**

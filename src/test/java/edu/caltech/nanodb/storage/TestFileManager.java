@@ -1,16 +1,11 @@
-package edu.caltech.test.nanodb.storage;
+package edu.caltech.nanodb.storage;
 
-
-import edu.caltech.nanodb.storage.DBFile;
-import edu.caltech.nanodb.storage.DBFileType;
-import edu.caltech.nanodb.storage.DBPage;
-import edu.caltech.nanodb.storage.FileManager;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+
+import org.junit.Before;
+import org.junit.Test;
 
 
 public class TestFileManager extends StorageTestCase {

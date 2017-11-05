@@ -1,4 +1,4 @@
-package edu.caltech.test.nanodb.storage;
+package edu.caltech.nanodb.storage;
 
 
 import java.io.File;

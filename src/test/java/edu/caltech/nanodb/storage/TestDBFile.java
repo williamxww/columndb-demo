@@ -1,13 +1,10 @@
-package edu.caltech.test.nanodb.storage;
-
-import edu.caltech.nanodb.storage.DBFileType;
-
-import edu.caltech.nanodb.storage.DBFile;
-import org.junit.Assert;
-import org.junit.Test;
+package edu.caltech.nanodb.storage;
 
 import java.io.File;
 import java.io.IOException;
+
+import org.junit.Assert;
+import org.junit.Test;
 
 /**
  * This class exercises some of the core utility methods of the {@link DBFile}

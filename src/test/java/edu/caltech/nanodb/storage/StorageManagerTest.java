@@ -1,4 +1,11 @@
-package edu.caltech.test.nanodb.storage;
+package edu.caltech.nanodb.storage;
+
+
+import java.io.File;
+import java.io.IOException;
+
+import org.junit.AfterClass;
+import org.junit.Test;
 
 import edu.caltech.nanodb.client.SessionState;
 import edu.caltech.nanodb.commands.FromClause;
@@ -18,23 +25,8 @@ import edu.caltech.nanodb.relations.ColumnType;
 import edu.caltech.nanodb.relations.SQLDataType;
 import edu.caltech.nanodb.relations.TableSchema;
 import edu.caltech.nanodb.relations.Tuple;
-import edu.caltech.nanodb.storage.DBFile;
-import edu.caltech.nanodb.storage.DBFileType;
-import edu.caltech.nanodb.storage.DBPage;
-import edu.caltech.nanodb.storage.FileManager;
-import edu.caltech.nanodb.storage.StorageManager;
-import edu.caltech.nanodb.storage.TableFileInfo;
-import edu.caltech.nanodb.storage.TableManager;
 import edu.caltech.nanodb.storage.colstore.ColStoreTableManager;
-import edu.caltech.nanodb.storage.heapfile.HeapFilePageTuple;
-import edu.caltech.nanodb.storage.heapfile.HeapFileTableManager;
 import edu.caltech.nanodb.transactions.TransactionState;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Test;
-
-import java.io.File;
-import java.io.IOException;
 
 /**
  * @author vv

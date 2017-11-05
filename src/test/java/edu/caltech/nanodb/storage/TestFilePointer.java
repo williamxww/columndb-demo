@@ -1,6 +1,5 @@
-package edu.caltech.test.nanodb.storage;
+package edu.caltech.nanodb.storage;
 
-import edu.caltech.nanodb.storage.FilePointer;
 import org.junit.Test;
 
 /**
