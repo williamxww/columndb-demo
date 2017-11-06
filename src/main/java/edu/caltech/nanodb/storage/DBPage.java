@@ -210,7 +210,9 @@ public class DBPage {
         return oldPageData;
     }
 
-    
+    /**
+     * 将新数据放到oldPageData里面去
+     */
     public void syncOldPageData() {
         if (oldPageData == null)
             throw new IllegalStateException("No old page data to sync");

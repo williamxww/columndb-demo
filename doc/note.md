@@ -149,18 +149,31 @@ redo:修改后的数据
 
 prevFileEndOffset：前一个WAL结尾的offset
 
+rec's fileOffset:当前记录的LSN，此记录的开始offset
+
 ```
 |    1B  |       1B     |         4B      |
 |FileType|encodePageSize|prevFileEndOffset|
 
+1.START_TXN，start txn是没有preLSN的
 |    1B    | 4B  |    1B    |
 |WALRecType|txnId|WALRecType|
-注意start txn是没有preLSN的
+
+2.其他TxnRecord的格式
+|    1B    | 4B  |      2B     |      4B     |    1B    |
+|WALRecType|txnId|prevLSNFileNo|prevLSNOffset|WALRecType|
+
+3.UPDATE_PAG
 |    1B    | 4B  |      2B     |      4B     |    x B   |  2B  |    2B     |
 |WALRecType|txnId|prevLSNFileNo|prevLSNOffset|DBFileName|PageNo|numSegments|
-数据段内容
-| 2B  | 2B |        xB       | 2B  | 2B |        xB       |
-|index|size|undo or redo data|index|size|undo or redo data|
+| 2B  | 2B |        xB       | 2B  | 2B |        xB       |...|        4B      |    1B    |
+|index|size|undo or redo data|index|size|undo or redo data|...|rec's fileOffset|WALRecType|
+
+4.UPDATE_PAGE_REDO_ONLY,与UPDATE_PAG相比没有了undo data
+|    1B    | 4B  |      2B     |      4B     |    x B   |  2B  |    2B     |
+|WALRecType|txnId|prevLSNFileNo|prevLSNOffset|DBFileName|PageNo|numSegments|
+| 2B  | 2B |    xB   | 2B  | 2B |     xB   |...|        4B      |    1B    |
+|index|size|redo data|index|size| redo data|...|rec's fileOffset|WALRecType|
 ```
 
 

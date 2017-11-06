@@ -20,49 +20,28 @@ import edu.caltech.nanodb.transactions.TransactionState;
 import edu.caltech.nanodb.util.ArrayUtil;
 
 /**
- * <p>
- * This class manages the write-ahead logs of the database. There are methods to
- * write the different kinds of log records, and also to perform recovery based
- * on the contents of the write-ahead logs. Note that many details of
- * transaction coordination are handled by the Transaction Manager, such as
- * syncing the write-ahead log, forcing the WAL, and so forth.
- * </p>
- * <p>
- * The actual details of the write-ahead log format are in the package Javadocs:
- * {@link edu.caltech.nanodb.storage.writeahead}.
- * </p>
- * <p>
- * Some of the {@code writeXXXX()} methods require explicit transaction details,
- * while others retrieve the transaction state from thread-local storage. The
- * main difference is that methods that require explicit transaction details are
- * needed during recovery processing, when transaction state is dictated by the
- * log file, not what is in thread-local storage.
- * </p>
+ * 此类用于管理write-ahead log，一些方法是用于记录各种类型的日志，一些方法则用于根据日志进行恢复。 注意部分日志操作（跟事务相关的）是由
+ * {@link TransactionManager}代为完成的， such as syncing the write-ahead log, forcing
+ * the WAL, and so forth.
  */
 public class WALManager {
 
     private static Logger logger = Logger.getLogger(WALManager.class);
 
-    /** Write-ahead log files follow this pattern. */
     public static final String WAL_FILENAME_PATTERN = "wal-%05d.log";
 
     /**
-     * Maximum file number for a write-ahead log file.
+     * log file number的最大值.
      */
     public static final int MAX_WAL_FILE_NUMBER = 65535;
 
     /**
-     * Maximum size of a write-ahead log file is 10MB. When the current WAL file
-     * reaches this size, it is closed and a new WAL file is created with the
-     * next increasing file number.
+     * write-ahead log file 最大 10MB，达到此值时创建新的WAL文件
      */
     public static final int MAX_WAL_FILE_SIZE = 10 * 1024 * 1024;
 
     /**
-     * 接下来4byte记录了在前一个WAL file中最后一个字节的偏移量<br/>
-     * This is the file-offset just past the last byte written in the previous
-     * WAL file, or 0 for the first WAL file. The value is an integer, occupying
-     * 4 bytes.
+     * 接下来4byte记录了在前一个WAL file中最后一个字节的偏移量，第一个WAL文件中此值为0
      */
     public static final int OFFSET_PREV_FILE_END = 2;
 
@@ -71,31 +50,17 @@ public class WALManager {
      */
     public static final int OFFSET_FIRST_RECORD = 6;
 
-    /**
-     * This static helper method simply takes a WAL file number and translates
-     * it into a corresponding filename based on that number.
-     *
-     * @param fileNo the WAL file number to get the filename for
-     *
-     * @return the string file-name for the corresponding WAL file
-     */
-    public static String getWALFileName(int fileNo) {
-        return String.format(WAL_FILENAME_PATTERN, fileNo);
-    }
-
     private StorageManager storageManager;
 
     private BufferManager bufferManager;
 
     /**
-     * This object holds the log sequence number of the first write-ahead log
-     * record where recovery would need to start from.
+     * 恢复时的起始位置
      */
     private LogSequenceNumber firstLSN;
 
     /**
-     * This object holds the log sequence number where the next write-ahead log
-     * record will be written.
+     * 下次写日志的位置
      */
     private LogSequenceNumber nextLSN;
 
@@ -106,6 +71,7 @@ public class WALManager {
 
     /**
      * 根据文件号创建write ahead log file(WALFile)
+     * 
      * @param fileNo 文件号
      * @return DBFile
      * @throws IOException e
@@ -135,6 +101,16 @@ public class WALManager {
         }
 
         return dbFile;
+    }
+
+    /**
+     * 生成WAL文件名
+     * 
+     * @param fileNo 文件号
+     * @return WAL文件名
+     */
+    public static String getWALFileName(int fileNo) {
+        return String.format(WAL_FILENAME_PATTERN, fileNo);
     }
 
     public LogSequenceNumber getFirstLSN() {
@@ -199,7 +175,7 @@ public class WALManager {
     /**
      * 重做日志
      * 
-     * @param recoveryInfo 重做日志的起始位置和终止位置
+     * @param recoveryInfo 从起始位置重做日志直到终止位置
      * @throws IOException e
      */
     private void performRedo(RecoveryInfo recoveryInfo) throws IOException {
@@ -226,28 +202,24 @@ public class WALManager {
                 walReader.movePosition(6);
             }
 
-            // Update our general recovery info, namely the LSN of the last
-            // record we have seen for each transaction, and also the maximum
-            // transaction ID we have seen.
+            // 将此事务transactionID放到recoveryInfo的未完成事务map中
             recoveryInfo.updateInfo(transactionID, currLSN);
 
             // Redo specific operations.
             switch (type) {
                 case START_TXN:
-                    // Already handled by RecoveryInfo's updateInfo() operation.
+                    // 前面updateInfo已将此事务放到未完成事务map中了，此处不再做处理
                     logger.debug("Transaction " + transactionID + " is starting");
-
-                    // Move past the trailing record-type value.
+                    // 跳过record末尾的record-type
                     walReader.movePosition(1);
-
                     break;
 
                 case COMMIT_TXN:
                 case ABORT_TXN:
                     logger.debug("Transaction " + transactionID + " is completed (" + type + ")");
+                    // 将此事务从未完成map中移除
                     recoveryInfo.recordTxnCompleted(transactionID);
-
-                    // Move past the trailing record-type value.
+                    // 跳过record末尾的record-type
                     walReader.movePosition(1);
 
                     break;
@@ -259,7 +231,7 @@ public class WALManager {
                     int redoPageNo = walReader.readUnsignedShort();
                     int numSegments = walReader.readUnsignedShort();
 
-                    //打开对应的数据页
+                    // 打开对应的数据页
                     DBFile redoFile = storageManager.openDBFile(redoFilename);
                     DBPage redoPage = storageManager.loadDBPage(redoFile, redoPageNo);
 
@@ -269,7 +241,7 @@ public class WALManager {
                     // 对数据页执行重做
                     applyRedo(type, walReader, redoPage, numSegments);
 
-                    // update, redo-only update都会记录recordSize(1 int)和recordType(1 byte),跳过这部分数据
+                    // 跳过此record末尾的recordSize(int)和recordType(byte)
                     walReader.movePosition(5);
                     break;
 
@@ -292,6 +264,12 @@ public class WALManager {
                 + " incomplete transactions.");
     }
 
+    /**
+     * 执行回滚操作，并记录新的日志。将RecoveryInfo中未完成的事务都回退
+     * FIXME 这个方法貌似有问题，
+     * @param recoveryInfo 指定了要回滚的位置
+     * @throws IOException
+     */
     private void performUndo(RecoveryInfo recoveryInfo) throws IOException {
         LogSequenceNumber currLSN = recoveryInfo.nextLSN;
         logger.debug("Starting undo processing at LSN " + currLSN);
@@ -299,20 +277,18 @@ public class WALManager {
         LogSequenceNumber oldLSN = null;
         DBFileReader walReader = null;
         while (recoveryInfo.hasIncompleteTxns()) {
-            // Compute LSN of previous WAL record. Start by getting the last
-            // byte of the previous WAL record.
+
             int logFileNo = currLSN.getLogFileNo();
             int fileOffset = currLSN.getFileOffset();
 
             if (fileOffset < OFFSET_FIRST_RECORD) {
-                // This would be highly unusual, but would indicate either a
-                // bug in the undo record-traversal, or a corrupt WAL file.
+                // 不可能到这里
                 throw new WALFileException(
                         String.format("Overshot the start " + "of WAL file %d's records; ended up at file-position %d",
                                 logFileNo, fileOffset));
             }
 
-            // fileOffset处于起始位置，则获取前一个文件的LSN
+            // fileOffset处于起始位置，则获取前一个文件END的offset
             if (fileOffset == OFFSET_FIRST_RECORD) {
                 // 获取前一个WAL文件的offset
                 walReader = getWALFileReader(currLSN);
@@ -325,7 +301,7 @@ public class WALManager {
 
                 // 获取前一个WAL文件的fileNo
                 logFileNo--;
-                if (logFileNo < 0){
+                if (logFileNo < 0) {
                     logFileNo = MAX_WAL_FILE_NUMBER;
                 }
 
@@ -334,47 +310,38 @@ public class WALManager {
                 fileOffset = currLSN.getFileOffset();
             }
 
-            if (currLSN.compareTo(recoveryInfo.firstLSN) <= 0){
+            if (currLSN.compareTo(recoveryInfo.firstLSN) <= 0) {
                 break;
             }
 
-
-            if (oldLSN == null || oldLSN.getLogFileNo() != logFileNo){
-                // 根据currLSN获取WAL的Reader
+            if (oldLSN == null || oldLSN.getLogFileNo() != logFileNo) {
+                // 文件不一致则重新获取Reader
                 walReader = getWALFileReader(currLSN);
             }
 
-
-            // 向前移动1byte便于读取typeId
+            // WAL记录的最后一个字节都是type,向前移动1byte便于读取typeId
             walReader.movePosition(-1);
             byte typeID = walReader.readByte();
             WALRecordType type = WALRecordType.valueOf(typeID);
 
-            // Compute the start of the previous record based on its type and
-            // other details.
+            // 计算此record的start,注意fileOffset指向了nextLSN的第一个字节
             int startOffset;
             switch (type) {
                 case START_TXN:
-                    // Type (1B) + TransactionID (4B) + Type (1B) = 6 bytes
+                    // Type (1B) + TransactionID (4B) + Type (1B)
+                    //startOffset指向了TransactionID的第一个字节
                     startOffset = fileOffset - 6 + 1;
                     break;
 
                 case COMMIT_TXN:
                 case ABORT_TXN:
-                    // Type (1B) + TransactionID (4B) + PrevLSN (2B+4B) + Type
-                    // (1B)
-                    // = 12 bytes
+                    // Type(1B)+TransactionID(4B)+PrevLSN(6B)+Type(1B)
                     startOffset = fileOffset - 12 + 1;
                     break;
 
                 case UPDATE_PAGE:
                 case UPDATE_PAGE_REDO_ONLY:
-                    // For these records, the WAL record's start offset is
-                    // stored
-                    // immediately before the last type-byte. We go back 5 bytes
-                    // because reading the type ID moves the position forward by
-                    // 1 byte, and then we also have to get to the start of the
-                    // 4-byte starting offset.
+                    // startOffset(4B)+Type(1B)
                     walReader.movePosition(-5);
                     startOffset = walReader.readInt();
                     break;
@@ -384,29 +351,20 @@ public class WALManager {
                             + " during redo processing!");
             }
 
-            // Construct a new LSN pointing to the previous record. If this
-            // happens to be before the range that we are using for recovery,
-            // we're done with undo-processing.
+            // 构造前一条日志的LSN，如果比要恢复的小就不处理了
             currLSN = new LogSequenceNumber(logFileNo, startOffset);
-            if (currLSN.compareTo(recoveryInfo.firstLSN) < 0){
+            if (currLSN.compareTo(recoveryInfo.firstLSN) < 0) {
                 break;
             }
 
-            // Read the transaction ID. If it's for a completed transaction,
-            // we skip over the record.
+            // 读取transactionID，若此事务已完成，则不处理
             int transactionID = walReader.readInt();
             if (recoveryInfo.isTxnComplete(transactionID)) {
-                // The current transaction is already completed, so skip the
-                // record.
                 oldLSN = currLSN;
                 continue;
             }
 
-            // Undo specific operations. Note that we don't have to set the
-            // reader's position to anything special at the end of each record,
-            // since the above code will always properly move to the appropriate
-            // position for the previous record, based on the value of currLSN.
-
+            //开始执行回滚操作
             logger.debug(
                     String.format("Undoing WAL record at %s.  Type = %s, TxnID = %d", currLSN, type, transactionID));
 
@@ -422,37 +380,30 @@ public class WALManager {
 
                 case COMMIT_TXN:
                 case ABORT_TXN:
-                    // We shouldn't see these records, since this is supposedly
-                    // an incomplete transaction!
+                    // 因为现在是执行未处理玩的事务，所以不可能是处理COMMIT ABORT
                     throw new IllegalStateException("Saw a " + type
                             + "WAL-record for supposedly incomplete transaction " + transactionID + "!");
 
                 case UPDATE_PAGE:
-                    // Undo the changes to the specified file and page.
-
+                    // 读取数据页
                     String undoFilename = walReader.readVarString255();
                     int undoPageNo = walReader.readUnsignedShort();
-
+                    // 打开数据文件
                     DBFile undoFile = storageManager.openDBFile(undoFilename);
                     DBPage undoPage = storageManager.loadDBPage(undoFile, undoPageNo);
 
-                    // Read the number of segments in the redo/undo record, and
-                    // undo the writes. While we do this, the data for a
-                    // redo-only
-                    // record is also accumulated.
-
                     int numSegments = walReader.readUnsignedShort();
-
                     logger.debug(String.format("Undoing changes to file %s, page %d (%d segments)", undoFile,
                             undoPageNo, numSegments));
 
+                    // 执行回退操作
                     byte[] redoOnlyData = applyUndoAndGenRedoOnlyData(walReader, undoPage, numSegments);
 
                     // Update the WAL with the redo-only record. Make sure to
                     // grab
                     // the LSN of the redo-only record so that we can chain any
                     // subsequent records after this one.
-
+                    // 将回退操作的内容也记录到新的日志中
                     LogSequenceNumber redoOnlyLSN = writeRedoOnlyUpdatePageRecord(transactionID,
                             recoveryInfo.getLastLSN(transactionID), undoPage, numSegments, redoOnlyData);
 
@@ -479,7 +430,7 @@ public class WALManager {
         if (fileOffset >= MAX_WAL_FILE_SIZE) {
             // WAL文件超过大小限制后，fileNo+1,offset重置
             fileNo += 1;
-            if (fileNo > MAX_WAL_FILE_NUMBER){
+            if (fileNo > MAX_WAL_FILE_NUMBER) {
                 fileNo = 0;
             }
             fileOffset = OFFSET_FIRST_RECORD;
@@ -547,34 +498,39 @@ public class WALManager {
     }
 
     /**
-     * This function writes a transaction demarcation record (
-     * {@link WALRecordType#START_TXN}, {@link WALRecordType#COMMIT_TXN}, or
-     * {@link WALRecordType#ABORT_TXN}) to the write-ahead log. The transaction
-     * state is passed explicitly so that this method can be used during
-     * recovery processing. The alternate method
-     * {@link #writeTxnRecord(WALRecordType)} retrieves the transaction state
-     * from thread-local storage, and should be used during normal operation.
+     * 写一个事务分界点到日志中
      *
-     * @param type The type of the transaction demarcation to write, one of the
-     *        values {@link WALRecordType#START_TXN},
-     *        {@link WALRecordType#COMMIT_TXN}, or
-     *        {@link WALRecordType#ABORT_TXN}.
-     *
-     * @param transactionID the transaction ID that the WAL record is for
-     *
-     * @param prevLSN the log sequence number of the transaction's immediately
-     *        previous WAL record, if the record type is either a commit or
-     *        abort record.
-     *
-     * @return the Log Sequence Number of the WAL record that was written
-     *
-     * @throws IOException if the write-ahead log can't be updated for some
-     *         reason.
-     *
-     * @throws IllegalArgumentException if <tt>type</tt> is <tt>null</tt>, or if
-     *         it isn't one of the values {@link WALRecordType#START_TXN},
-     *         {@link WALRecordType#COMMIT_TXN}, or
-     *         {@link WALRecordType#ABORT_TXN}.
+     * @see WALRecordType#START_TXN
+     * @see WALRecordType#COMMIT_TXN
+     * @see WALRecordType#ABORT_TXN
+     * @param type WALRecordType枚举
+     * @return 写入到日志中的内容对应的LSN
+     * @throws IOException the write-ahead log 不能更新
+     * @throws IllegalStateException 当前没有事务
+     */
+    public LogSequenceNumber writeTxnRecord(WALRecordType type) throws IOException {
+
+        // Retrieve and verify the transaction state.
+        TransactionState txnState = SessionState.get().getTxnState();
+        if (!txnState.isTxnInProgress()) {
+            throw new IllegalStateException("No transaction is currently in progress!");
+        }
+
+        LogSequenceNumber lsn = writeTxnRecord(type, txnState.getTransactionID(), txnState.getLastLSN());
+
+        txnState.setLastLSN(lsn);
+
+        return lsn;
+    }
+
+    /**
+     * 写一个事务分界点到日志中,正常情况下应该用{@link #writeTxnRecord(WALRecordType)}
+     * 
+     * @param type 日志类型
+     * @param transactionID 事务ID
+     * @param prevLSN 前一个LSN
+     * @return 当前日志操作的LSN
+     * @throws IOException e
      */
     public LogSequenceNumber writeTxnRecord(WALRecordType type, int transactionID, LogSequenceNumber prevLSN)
             throws IOException {
@@ -619,55 +575,11 @@ public class WALManager {
     }
 
     /**
-     * This function writes a transaction demarcation record (
-     * {@link WALRecordType#START_TXN}, {@link WALRecordType#COMMIT_TXN}, or
-     * {@link WALRecordType#ABORT_TXN}) to the write-ahead log. The transaction
-     * state is retrieved from thread-local storage so that it doesn't need to
-     * be passed.
-     *
-     * @param type The type of the transaction demarcation to write, one of the
-     *        values {@link WALRecordType#START_TXN},
-     *        {@link WALRecordType#COMMIT_TXN}, or
-     *        {@link WALRecordType#ABORT_TXN}.
-     *
-     * @return the Log Sequence Number of the WAL record that was written
-     *
-     * @throws IOException if the write-ahead log can't be updated for some
-     *         reason.
-     *
-     * @throws IllegalArgumentException if <tt>type</tt> is <tt>null</tt>, or if
-     *         it isn't one of the values {@link WALRecordType#START_TXN},
-     *         {@link WALRecordType#COMMIT_TXN}, or
-     *         {@link WALRecordType#ABORT_TXN}.
-     */
-    public LogSequenceNumber writeTxnRecord(WALRecordType type) throws IOException {
-
-        // Retrieve and verify the transaction state.
-        TransactionState txnState = SessionState.get().getTxnState();
-        if (!txnState.isTxnInProgress()) {
-            throw new IllegalStateException("No transaction is currently in progress!");
-        }
-
-        LogSequenceNumber lsn = writeTxnRecord(type, txnState.getTransactionID(), txnState.getLastLSN());
-
-        txnState.setLastLSN(lsn);
-
-        return lsn;
-    }
-
-    /**
-     * This method writes an update-page record to the write-ahead log,
-     * including both undo and redo details.
-     *
-     * @param dbPage The data page whose changes are to be recorded in the log.
-     *
-     * @return the Log Sequence Number of the WAL record that was written
-     *
-     * @throws IOException if the write-ahead log cannot be updated for some
-     *         reason.
+     * 将dbPage里的新数据写到write-ahead log中，包括undo and redo details.
      * 
-     * @throws IllegalArgumentException if <tt>dbPage</tt> is <tt>null</tt>, or
-     *         if it shows no updates.
+     * @param dbPage 数据页
+     * @return 本次记录日志的LogSequenceNumber
+     * @throws IOException e
      */
     public LogSequenceNumber writeUpdatePageRecord(DBPage dbPage) throws IOException {
 
@@ -835,24 +747,12 @@ public class WALManager {
     }
 
     /**
-     * This helper method uses a {@link WALRecordType#UPDATE_PAGE} record to
-     * undo changes to a data page, and at the same time the method generates
-     * the data that must go into a corresponding redo-only WAL record.
-     *
-     * @param walReader A reader positioned at the start of the redo/undo data
-     *        to apply to the data page. This method will advance the reader's
-     *        position past this redo/undo data.
-     *
-     * @param dbPage the data page that undo operations should be applied to
-     *
-     * @param numSegments the number of segments in the redo/undo data
-     *
-     * @return a byte-array containing the same number of segments as the
-     *         original update record, with only the data necessary for the
-     *         redo-only record.
-     *
-     * @throws IOException if an IO error occurs while applying the undo
-     *         operation
+     * 执行Undo并将回滚的数据返回
+     * @param walReader 日志reader
+     * @param dbPage 要回滚的数据页
+     * @param numSegments 回滚的数据段个数
+     * @return undo的数据
+     * @throws IOException e
      */
     private byte[] applyUndoAndGenRedoOnlyData(DBFileReader walReader, DBPage dbPage, int numSegments)
             throws IOException {
@@ -865,12 +765,12 @@ public class WALManager {
             int start = walReader.readUnsignedShort();
             int length = walReader.readUnsignedShort();
 
-            // Apply the undo data to the data page.
+            // 对数据页执行undo.
             byte[] undoData = new byte[length];
             walReader.read(undoData);
             dbPage.write(start, undoData);
 
-            // Skip past the redo data, because don't care about it.
+            // 跳过 redo data, 在undo数据后面接着就是redo数据.
             walReader.movePosition(length);
 
             // Record what we wrote into the redo-only record data.
