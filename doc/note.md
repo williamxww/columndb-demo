@@ -149,7 +149,9 @@ redo:修改后的数据
 
 prevFileEndOffset：前一个WAL结尾的offset
 
-rec's fileOffset:当前记录的LSN，此记录的开始offset
+rec's fileOffset:当前记录的LSN，即此记录的开始offset
+
+WALRecType：每条日志的末尾放type是便于回滚时根据type算出当前日志的起始位置。
 
 ```
 |    1B  |       1B     |         4B      |
@@ -197,6 +199,48 @@ CSHeaderPage
 // 列统计信息
 |nullMask|numUnique|numNull|colType|minVal|colType|maxVal|
 ```
+
+#### 列数据结构(新)
+
+记录表结构的文件
+
+xxx.frm
+
+```
+// 存储整体结构数据
+|    1B  |       1B     |   4B    |
+|FileType|encodePageSize|chemaSize|
+// 存储列信息
+|  1B      |  1B  |   1B     |  XB   |  1B  |   1B     |  XB   |...
+|numColumns|TypeID|colNameLen|colName|TypeID|colNameLen|colName|...
+// 存储约束
+|  1B          |  1B          |  1B          |  1B   |  1B    |
+|numConstraints|ConstraintType|ConstraintName|keySize|ColIndex|
+// 存储表统计信息
+|NumDataPages|NumTuples|AvgTupleSize|
+// 列统计信息
+|nullMask|numUnique|numNull|colType|minVal|colType|maxVal|
+```
+
+xxx.col.data
+
+对于定长字段如int
+
+```
+|FileType|encodePageSize|colType|beginOffset|nextOffset|
+|numSlots|maxVal|minVal|
+|slotVal|slotVal|...
+```
+
+变长字段如varchar
+
+```
+|FileType|encodePageSize|colType|beginOffset|nextOffset|
+|numSlots|maxVal|minVal|
+|length|data|length|data|...
+```
+
+
 
 #### UncompressedPage
 

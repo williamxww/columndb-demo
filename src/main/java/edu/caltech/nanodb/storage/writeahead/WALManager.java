@@ -785,31 +785,21 @@ public class WALManager {
     }
 
     /**
-     * This method writes a redo-only update-page record to the write-ahead log,
-     * including only redo details. The transaction state is passed explicitly
-     * so that this method can be used during recovery processing. The alternate
-     * method {@link #writeRedoOnlyUpdatePageRecord(DBPage, int, byte[])}
-     * retrieves the transaction state from thread-local storage, and should be
-     * used during normal operation.
+     * 只写redo log，一般用{@link #writeRedoOnlyUpdatePageRecord(DBPage, int, byte[])}<br/>
+     * <pre>
+     * |    1B    | 4B  |      2B     |      4B     |    x B   |  2B  |    2B     |
+     * |WALRecType|txnId|prevLSNFileNo|prevLSNOffset|DBFileName|PageNo|numSegments|
      *
-     * @param transactionID the transaction ID that the WAL record is for.
-     *
-     * @param prevLSN the log sequence number of the transaction's immediately
-     *        previous WAL record.
-     *
-     * @param dbPage The data page whose changes are to be recorded in the log.
-     *
-     * @param numSegments The number of segments in the change-data to record.
-     *
-     * @param changes The actual changes themselves, serialized to a byte array.
-     * 
-     * @return the Log Sequence Number of the WAL record that was written
-     *
-     * @throws IOException if the write-ahead log cannot be updated for some
-     *         reason.
-     *
-     * @throws IllegalArgumentException if <tt>dbPage</tt> is <tt>null</tt>, or
-     *         if <tt>changes</tt> is <tt>null</tt>.
+     * | 2B  | 2B |    xB   | 2B  | 2B |     xB   |...|        4B      |    1B    |
+     * |index|size|redo data|index|size| redo data|...|rec's fileOffset|WALRecType|
+     *</pre>
+     * @param transactionID transactionID
+     * @param prevLSN 前一条日志的LSN
+     * @param dbPage 数据页
+     * @param numSegments 有修改的数据段
+     * @param changes 修改的数据
+     * @return 当前记录日志的LSN
+     * @throws IOException e
      */
     public LogSequenceNumber writeRedoOnlyUpdatePageRecord(int transactionID, LogSequenceNumber prevLSN, DBPage dbPage,
             int numSegments, byte[] changes) throws IOException {
@@ -858,6 +848,14 @@ public class WALManager {
         return lsn;
     }
 
+    /**
+     * 将变化数据changes写到dbPage上
+     * @param dbPage 数据页
+     * @param numSegments 总数据段
+     * @param changes 更新数据
+     * @return 当前记录日志的LSN
+     * @throws IOException e
+     */
     public LogSequenceNumber writeRedoOnlyUpdatePageRecord(DBPage dbPage, int numSegments, byte[] changes)
             throws IOException {
 
